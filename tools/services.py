@@ -45,7 +45,7 @@ import zipfile
 import sqlite3
 import os
 from xml.etree import ElementTree
-
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -968,6 +968,15 @@ def create_master_data_export(user):
         "relations": """SELECT "RelationId", "Relation", "SortOrder", "AltLanguage" FROM "tblRelations";""",
         "phoneDefaults": """SELECT "RuleName", "RuleValue" FROM "tblIMISDefaultsPhone";""",
         "genders": """SELECT "Code", "Gender", "AltLanguage", "SortOrder" FROM "tblGender";""",
+        "ContributionPlans": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "calculationUUID", "BenefitPlanID", "BenefitPlanType" FROM "tblContributionPlan" WHERE "DateValidTo" IS NULL"""
+        if connection.vendor == "postgresql" else
+        """SELECT "UUID", "isDeleted", "Json_ext", "version", FORMAT("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, FORMAT("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "calculationUUID", "BenefitPlanID", "BenefitPlanType" FROM "tblContributionPlan" WHERE "DateValidTo" IS NULL""",
+        "ContributionPlanBundles": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "ReplacementUUID" FROM "tblContributionPlanBundle" WHERE "DateValidTo" IS NULL"""
+        if connection.vendor == "postgresql" else
+        """SELECT "UUID", "isDeleted", "Json_ext", "version", FORMAT("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, FORMAT("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "ReplacementUUID" FROM "tblContributionPlanBundle" WHERE "DateValidTo" IS NULL""",
+        "ContributionPlanBundleDetails": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "ReplacementUUID", "ContributionPlanUUID", "ContributionPlanBundleUUID" FROM "tblContributionPlanBundleDetails" WHERE "DateValidTo" IS NULL"""
+        if connection.vendor == "postgresql" else
+        """SELECT "UUID", "isDeleted", "Json_ext", "version", FORMAT("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, FORMAT("DateValidTo", 'yyyy-MM-dd')DateValidTo, "ReplacementUUID", "ContributionPlanUUID", "ContributionPlanBundleUUID" FROM "tblContributionPlanBundleDetails" WHERE "DateValidTo" IS NULL""",
     }
 
     results = {}
@@ -976,6 +985,15 @@ def create_master_data_export(user):
         for key, query in queries.items():
             cursor.execute(query)
             results[key] = dictfetchall(cursor)
+            # Change the type UUID to String because it causes error: "Object of type UUID is not JSON serializable"
+            if key in ["calculationUUID", "ContributionPlans", "ContributionPlanBundles", "ContributionPlanBundleDetails"]:
+                for value in results[key]:
+                    for column in ["UUID", "calculationUUID", "ReplacementUUID", "ContributionPlanUUID", "ContributionPlanBundleUUID"]:
+                        if value.get(column, False):
+                            if isinstance(value[column], UUID):
+                                value[column] = str(value[column])
+                    if(value.get("Json_ext")):
+                        value["Json_ext"] = json.loads(value["Json_ext"])
 
     with tempfile.TemporaryDirectory() as tmp_dir_name:
         master_data_file_path = os.path.join(tmp_dir_name, "MasterData.txt")
