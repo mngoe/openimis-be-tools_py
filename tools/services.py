@@ -977,7 +977,7 @@ def create_master_data_export(user):
         "ContributionPlanBundleDetails": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "ReplacementUUID", "ContributionPlanUUID", "ContributionPlanBundleUUID" FROM "tblContributionPlanBundleDetails" WHERE "DateValidTo" IS NULL"""
         if connection.vendor == "postgresql" else
         """SELECT "UUID", "isDeleted", "Json_ext", "version", FORMAT("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, FORMAT("DateValidTo", 'yyyy-MM-dd')DateValidTo, "ReplacementUUID", "ContributionPlanUUID", "ContributionPlanBundleUUID" FROM "tblContributionPlanBundleDetails" WHERE "DateValidTo" IS NULL""",
-        "IncomeLevels": """SELECT "IncomeLevelID", "FrenchVersion", "EnglishVersion" FROM "tblIncomeLevels" """,
+        "IncomeLevels": """SELECT "IncomeLevelID", "FirstLanguage", "SecondLanguage" FROM "tblIncomeLevels" """,
     }
 
     results = {}
