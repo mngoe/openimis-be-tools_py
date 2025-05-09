@@ -15,7 +15,7 @@ from core.utils import filter_validity
 from core.services import create_or_update_officer_villages
 from location.models import Location
 from policy.services import insert_renewals
-from claim.models import Claim
+from claim.models import Claim, ClaimAdmin
 from claim.services import create_feedback_prompt
 from claim.test_helpers import (
     create_test_claim,
@@ -23,7 +23,17 @@ from claim.test_helpers import (
     create_test_claimitem,
     delete_claim_with_itemsvc_dedrem_and_history,
 )
+from medical.test_helpers import (
+    get_service_of_category,
+    get_item_of_type,
+)
+from location.test_helpers import (
+    create_test_health_facility,
+    create_test_location,
+)
 
+from insuree.test_helpers import create_test_insuree
+from medical.models import Diagnosis 
 class UploadClaimsTestCase(TestCase):
     def test_upload_claims_unknown_hf(self):
         with patch('tools.services.settings.ROW_SECURITY', new_callable=PropertyMock) as row_security_mock:
@@ -36,13 +46,11 @@ class UploadClaimsTestCase(TestCase):
                     mock_user,
                     ElementTree.fromstring(
                         """
-                            <root>
-                                <Claim>
+                               <Claim>
                                     <Details>
                                         <HFCode>WRONG</HFCode>
                                     </Details>
-                                </Claim>
-                            </root>
+                                </Claim> 
                         """
                     ),
                 )
@@ -50,7 +58,79 @@ class UploadClaimsTestCase(TestCase):
                 "User cannot upload claims for health facility WRONG",
                 str(cm.exception),
             )
+            
+    def test_upload_claims_with_subservices(self):
+        with patch('tools.services.settings.ROW_SECURITY', new_callable=PropertyMock) as row_security_mock:
+            row_security_mock.return_value = True
+            mock_user = mock.Mock(is_anonymous=False)
+            mock_user.has_perm = mock.MagicMock(return_value=True)
+            mock_user.is_claim_admin = mock.MagicMock(return_value=True)
+            mock_user.is_imis_admin = mock.MagicMock(return_value=False)
+            location = create_test_location('D')
+            insuree = create_test_insuree()
+            hf = create_test_health_facility('HF1', location.id)
+            item = get_item_of_type('D')
+            service = get_service_of_category("A")
+            subservice = get_service_of_category("A")
+            subitem = get_item_of_type('D')
+            diagnosis = Diagnosis.objects.create(code="TEST1", name="Typhoid fever, unspecified", audit_user_id=1)
+            claim_admin = ClaimAdmin.objects.create(code="TEST1",last_name="Positif",email_id="positif@gmail.com",has_login=True,audit_user_id=1)
 
+            claim_with_subservices_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Claim>
+                <Details>
+                    <ClaimDate>2025-05-08</ClaimDate>
+                    <HFCode>{hf.code}</HFCode>
+                    <ClaimAdmin>DRFPCSU</ClaimAdmin>
+                    <ClaimCode>{claim_admin.code}</ClaimCode>
+                    <Program>Chèque Santé</Program>
+                    <CHFID>{insuree.chf_id}</CHFID>
+                    <StartDate>2024-06-03</StartDate>
+                    <EndDate>2024-06-03</EndDate>
+                    <ICDCode>{diagnosis.code}</ICDCode>
+                    <VisitType>O</VisitType>
+                    <ClaimPrefix>TEST</ClaimPrefix>
+                </Details>
+                <Items>
+                    <Item>
+                        <ItemCode>{item.code}</ItemCode>
+                        <ItemQuantity>1</ItemQuantity>
+                        <ItemPrice>1000.00</ItemPrice>
+                    </Item>
+                </Items>
+                <Services>
+                    <Service>
+                        <ServiceCode>{service.code}</ServiceCode>
+                        <ServiceQuantity>1</ServiceQuantity>
+                        <ServicePrice>2000.00</ServicePrice>
+                        <ServicePackageType>P</ServicePackageType>
+                        <ServiceId>111</ServiceId>
+                        <ServiceServiceSet>
+                            <ServiceServiceSet>
+                                <SubServiceCode>{subservice.code}</SubServiceCode>
+                                <QtyAsked>1</QtyAsked>
+                                <PriceAsked>500.00</PriceAsked>
+                            </ServiceServiceSet>
+                        </ServiceServiceSet>
+                        <ServiceItemSet>
+                            <ServiceItemSet>
+                                <SubItemCode>{subitem.code}</SubItemCode>
+                                <QtyAsked>1</QtyAsked>
+                                <PriceAsked>1000.00</PriceAsked>
+                            </ServiceItemSet>
+                        </ServiceItemSet>
+                    </Service>
+                </Services>
+            </Claim>
+            """
+
+            result = upload_claim(
+                mock_user,
+                ElementTree.fromstring(claim_with_subservices_xml),
+            )
+
+            self.assertTrue(result)
+            
 class GetXmlElement(TestCase):
     def test_get_xml_element(self):
         test_xml = ElementTree.fromstring(
