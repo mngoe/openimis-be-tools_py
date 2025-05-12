@@ -1375,9 +1375,7 @@ def generate_claims_error_excel(detailed_errors, zip_filename=None):
     wb.save(output)
     output.seek(0)
 
-    safe_zip_name = zip_filename.replace(" ", "_").replace(".zip", "") if zip_filename else "errors"
-    filename = f"detailed_errors_{safe_zip_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    # filename = f"detailed_errors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"detailed_errors_{zip_filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     response = HttpResponse(
         output,
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
