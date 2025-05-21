@@ -83,7 +83,7 @@ class UploadClaimsTestCase(TestCase):
                     <HFCode>{hf.code}</HFCode>
                     <ClaimAdmin>DRFPCSU</ClaimAdmin>
                     <ClaimCode>{claim_admin.code}</ClaimCode>
-                    <Program>Chèque Santé</Program>
+                    <Program>VIH</Program>
                     <CHFID>{insuree.chf_id}</CHFID>
                     <StartDate>2024-06-03</StartDate>
                     <EndDate>2024-06-03</EndDate>
