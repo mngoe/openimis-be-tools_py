@@ -119,8 +119,8 @@ class Migration(migrations.Migration):
                         FROM @XML.nodes('Claim/Details')AS T(Claim)
                         
                         -- Correction temporaire du nom de programme -----------------------------------------------------
-                        IF @Program = N'Chèque Santé'
-                            SET @Program = N'Cheque Santé'
+                        -- IF @Program = N'Chèque Santé'
+                        --    SET @Program = N'Cheque Santé'
 
 
                         INSERT INTO #tblItem(ItemCode,ItemPrice,ItemQuantity)
