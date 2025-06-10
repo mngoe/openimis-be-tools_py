@@ -459,22 +459,55 @@ def upload_claims(request):
     if not request.FILES:
         return JsonResponse({"error": "No file provided"}, status=400)
 
+    zip_password = request.POST.get("password")
+
     errors = []
-    for filename in request.FILES:
+    detailed_errors = []
+
+    for file_obj in request.FILES.values():
+        filename = file_obj.name.lower()
         try:
-            logger.info(f"Processing claim in {filename}")
-            xml = utils.sanitize_xml(request.FILES[filename])
-            services.upload_claim(request.user, xml)
-        except (utils.ParseError, services.InvalidXMLError) as exc:
-            logger.exception(exc)
-            errors.append(f"File '{filename}' is not a valid XML")
-            continue
-        except Exception as exc:
-            logger.exception(exc)
-            errors.append("An unknown error occurred.")
+            claims = services.open_claim_archive(file_obj, zip_password)
+        except Exception as e:
+            logger.exception("Error while extracting ZIP archive")
+            errors.append(
+                f"Could not extract ZIP '{filename}'. "
+                f"{'Password missing or incorrect.' if zip_password else 'No password provided, and file may be protected.'}"
+            )
             continue
 
-    return JsonResponse({"success": len(errors) == 0, "errors": errors})
+        for claim_filename, xml_file in claims:
+            try:
+                logger.info(f"Processing claim in {claim_filename}")
+                with xml_file:
+                    xml = utils.sanitize_xml(xml_file)
+                    services.upload_claim(request.user, xml)
+            except services.InvalidXMLError as exc:
+                # chfid = xml.find("CHFID").text if xml.find("CHFID") is not None else ""
+                # claim_code = xml.find("ClaimCode").text if xml.find("ClaimCode") is not None else ""
+                details = xml.find("Details")
+
+                chfid_el = details.find("CHFID") if details is not None else None
+                claim_code_el = details.find("ClaimCode") if details is not None else None
+
+                chfid = chfid_el.text.strip() if chfid_el is not None and chfid_el.text else "[missing CHFID]"
+                claim_code = claim_code_el.text.strip() if claim_code_el is not None and claim_code_el.text else "[missing ClaimCode]"
+
+                detailed_errors.append((chfid, claim_code, str(exc), claim_filename))
+                errors.append(f"File '{claim_filename}': {str(exc)}")
+                continue
+            except utils.ParseError:
+                errors.append(f"File '{claim_filename}' is not a valid XML")
+                continue
+            except Exception:
+                logger.exception(f"Unexpected error for {claim_filename}")
+                errors.append(f"Unexpected error in '{claim_filename}'")
+                continue
+
+    if detailed_errors:
+        return services.generate_claims_error_excel(detailed_errors, file_obj)
+
+    return JsonResponse({"success": len(errors) == 0, "errors": errors}, status=400 if errors else 200)
 
 
 @api_view(["POST"])

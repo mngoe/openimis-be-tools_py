@@ -45,7 +45,10 @@ import zipfile
 import sqlite3
 import os
 from xml.etree import ElementTree
-
+import openpyxl
+from openpyxl.styles import Font
+from io import BytesIO
+from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -1257,29 +1260,48 @@ def upload_claim(user, xml):
 
     if settings.ROW_SECURITY:
         logger.info("Check that user can upload claims in claims' health facilities")
-        hf_code = xml.find("Claim").find("Details").find("HFCode").text
+        hf_code = xml.find("Details").find("HFCode").text
+        real_user = getattr(user, '_u', user) 
         hfs = LocationManager().build_user_location_filter_query(
-            user._u, queryset=HealthFacility.filter_queryset().filter(code=hf_code), loc_types=['D'])
+            real_user, queryset=HealthFacility.filter_queryset().filter(code=hf_code), loc_types=['D'])
+        
+
         if len(hfs) < 1:
             raise InvalidXMLError(
                 f"User cannot upload claims for health facility {hf_code}"
             )
 
     with connection.cursor() as cursor:
+        if isinstance(xml, ElementTree.ElementTree):
+            xml_data = ElementTree.tostring(xml.getroot())
+        elif isinstance(xml, ElementTree.Element):
+            xml_data = ElementTree.tostring(xml)
+        else:
+            raise TypeError("Invalid XML type passed to upload_claim")
         cursor.execute(
             """
             DECLARE @ret int;
             EXEC @ret = [dbo].[uspUpdateClaimFromPhone] @XML = %s, @ByPassSubmit = 1;
             SELECT @ret;
         """,
-            (ElementTree.tostring(xml),),
+            (xml_data,),
         )
-        # We have to take the second result set. That's the one that contains the results
-        cursor.nextset()
-        cursor.nextset()
-        if cursor.description is None:
-            return
-        res = cursor.fetchone()[0]
+        
+        result_sets = []
+        while True:
+            if cursor.description:
+                result_sets.append(cursor.fetchall())
+            if not cursor.nextset():
+                break
+            
+        res = result_sets[-1][0][0] if result_sets and result_sets[-1] else None
+
+        # # We have to take the second result set. That's the one that contains the results
+        # cursor.nextset()
+        # cursor.nextset()
+        # if cursor.description is None:
+        #     return
+        # res = cursor.fetchone()[0]
 
         if res == 0:
             return True
@@ -1299,6 +1321,8 @@ def upload_claim(user, xml):
             raise InvalidXMLError("Unknown medical service code")
         elif res == 9:
             raise InvalidXMLError("Unknown claim admin code")
+        elif res == 10:
+            raise InvalidXMLError("Unknown program")
         elif res == -1:
             raise InvalidXMLError("Unknown error occurred")
 
@@ -1315,6 +1339,49 @@ def open_offline_archive(archive: str, password: str = None):
         zf.setpassword(str.encode(password))
         zf.extractall(path=temp_folder)
     return temp_folder
+            
+def open_claim_archive(archive, password: str = None):
+    claims = []
+    with pyzipper.AESZipFile(archive, 'r') as zf:
+        if password:
+            zf.pwd = password.encode('utf-8')
+        for zipinfo in zf.infolist():
+            if zipinfo.filename.lower().endswith('.xml'):
+                try:
+                    xml_file = zf.open(zipinfo)
+                    claims.append((zipinfo.filename, xml_file))
+                except RuntimeError as e:
+                    raise RuntimeError(f"Cannot open file '{zipinfo.filename}': {e}")
+    return claims
+
+
+def generate_claims_error_excel(detailed_errors, zip_filename=None):
+    """
+    Generates an Excel file containing the errors encountered during claim import.
+    detailed_errors: list of tuples (chfid, claim_code, error_message, filename)
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Claims Import Errors"
+
+    ws.append(["MPI", "Claim Code", "Error Message", "Filename"])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for chfid, claim_code, error, filename in detailed_errors:
+        ws.append([chfid, claim_code, error, filename])
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"detailed_errors_{zip_filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response = HttpResponse(
+        output,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 def get_or_create_insuree_from_xml(xml, audit_user_id, chf_id=None, family_id=None):
