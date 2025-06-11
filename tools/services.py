@@ -968,13 +968,13 @@ def create_master_data_export(user):
         "relations": """SELECT "RelationId", "Relation", "SortOrder", "AltLanguage" FROM "tblRelations";""",
         "phoneDefaults": """SELECT "RuleName", "RuleValue" FROM "tblIMISDefaultsPhone";""",
         "genders": """SELECT "Code", "Gender", "AltLanguage", "SortOrder" FROM "tblGender";""",
-        "ContributionPlans": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "calculationUUID", "BenefitPlanID", "BenefitPlanType" FROM "tblContributionPlan" WHERE "DateValidTo" IS NULL"""
+        "ContributionPlans": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "calculationUUID", "BenefitPlanID", "BenefitPlanType" FROM "tblContributionPlan" WHERE "isDeleted" IS NOT TRUE"""
         if connection.vendor == "postgresql" else
         """SELECT "UUID", "isDeleted", "Json_ext", "version", FORMAT("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, FORMAT("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "calculationUUID", "BenefitPlanID", "BenefitPlanType" FROM "tblContributionPlan" WHERE "DateValidTo" IS NULL""",
         "ContributionPlanBundles": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "ReplacementUUID" FROM "tblContributionPlanBundle" WHERE "DateValidTo" IS NULL"""
         if connection.vendor == "postgresql" else
         """SELECT "UUID", "isDeleted", "Json_ext", "version", FORMAT("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, FORMAT("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "ReplacementUUID" FROM "tblContributionPlanBundle" WHERE "DateValidTo" IS NULL""",
-        "ContributionPlanBundleDetails": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "ReplacementUUID", "ContributionPlanUUID", "ContributionPlanBundleUUID" FROM "tblContributionPlanBundleDetails" WHERE "DateValidTo" IS NULL"""
+        "ContributionPlanBundleDetails": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "ReplacementUUID", "ContributionPlanUUID", "ContributionPlanBundleUUID" FROM "tblContributionPlanBundleDetails" WHERE "isDeleted" IS NOT TRUE"""
         if connection.vendor == "postgresql" else
         """SELECT "UUID", "isDeleted", "Json_ext", "version", FORMAT("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, FORMAT("DateValidTo", 'yyyy-MM-dd')DateValidTo, "ReplacementUUID", "ContributionPlanUUID", "ContributionPlanBundleUUID" FROM "tblContributionPlanBundleDetails" WHERE "DateValidTo" IS NULL""",
         "IncomeLevels": """SELECT "IncomeLevelID", "FirstLanguage", "SecondLanguage" FROM "tblIncomeLevels" """,
