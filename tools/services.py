@@ -966,7 +966,7 @@ def create_master_data_export(user):
         """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod", FORMAT("DateFrom", 'yyyy-MM-dd')dateFrom, FORMAT("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID" , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee", "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3", "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold", "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc", "EnrolmentDiscountPeriod", "GracePeriod" FROM "tblProduct" WHERE "ValidityTo" IS NULL""",
         "professions": """SELECT "ProfessionId", "Profession", "SortOrder", "AltLanguage" FROM "tblProfessions";""",
         "relations": """SELECT "RelationId", "Relation", "SortOrder", "AltLanguage" FROM "tblRelations";""",
-        "phoneDefaults": """SELECT "RuleName", "RuleValue" FROM "tblIMISDefaultsPhone";""",
+        "phoneDefaults": """SELECT "RuleName", "RuleValue", "Usage" FROM "tblIMISDefaultsPhone";""",
         "genders": """SELECT "Code", "Gender", "AltLanguage", "SortOrder" FROM "tblGender";""",
         "ContributionPlans": """SELECT "UUID", "isDeleted", "Json_ext", "version", TO_CHAR("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, TO_CHAR("DateValidTo", 'yyyy-MM-dd')DateValidTo, "Code" , "Name", "Periodicity", "calculationUUID", "BenefitPlanID", "BenefitPlanType" FROM "tblContributionPlan" WHERE "isDeleted" IS NOT TRUE"""
         if connection.vendor == "postgresql" else
