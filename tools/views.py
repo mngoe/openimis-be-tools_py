@@ -463,6 +463,7 @@ def upload_claims(request):
 
     errors = []
     detailed_errors = []
+    imported_count = 0
 
     for file_obj in request.FILES.values():
         filename = file_obj.name.lower()
@@ -482,6 +483,7 @@ def upload_claims(request):
                 with xml_file:
                     xml = utils.sanitize_xml(xml_file)
                     services.upload_claim(request.user, xml)
+                    imported_count += 1
             except services.InvalidXMLError as exc:
                 # chfid = xml.find("CHFID").text if xml.find("CHFID") is not None else ""
                 # claim_code = xml.find("ClaimCode").text if xml.find("ClaimCode") is not None else ""
@@ -507,7 +509,11 @@ def upload_claims(request):
     if detailed_errors:
         return services.generate_claims_error_excel(detailed_errors, file_obj)
 
-    return JsonResponse({"success": len(errors) == 0, "errors": errors}, status=400 if errors else 200)
+    return JsonResponse({
+        "success": len(errors) == 0, 
+        "errors": errors,
+        "imported": imported_count
+    }, status=400 if errors else 200)
 
 
 @api_view(["POST"])
