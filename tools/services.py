@@ -48,8 +48,7 @@ from xml.etree import ElementTree
 import openpyxl
 from openpyxl.styles import Font
 from io import BytesIO
-from django.http import HttpResponse
-
+ 
 logger = logging.getLogger(__name__)
 
 # It's not great to convert decimals to float but keeping it in string would
@@ -1376,12 +1375,7 @@ def generate_claims_error_excel(detailed_errors, zip_filename=None):
     output.seek(0)
 
     filename = f"detailed_errors_{zip_filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = HttpResponse(
-        output,
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
+    return output, filename
 
 
 def get_or_create_insuree_from_xml(xml, audit_user_id, chf_id=None, family_id=None):

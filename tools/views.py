@@ -26,6 +26,7 @@ from . import serializers, services, utils
 from .apps import ToolsConfig
 from .resources import ItemResource, ServiceResource
 from .services import return_upload_result_json
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -507,7 +508,16 @@ def upload_claims(request):
                 continue
 
     if detailed_errors:
-        return services.generate_claims_error_excel(detailed_errors, file_obj)
+        error_excel_io, error_filename = services.generate_claims_error_excel(detailed_errors, file_obj)
+        excel_base64 = base64.b64encode(error_excel_io.getvalue()).decode('utf-8')
+
+        return JsonResponse({
+            "success": False,
+            "errors": errors,
+            "imported": imported_count,
+            "excel_base64": excel_base64,
+            "excel_filename": error_filename
+        }, status=400)
 
     return JsonResponse({
         "success": len(errors) == 0, 
