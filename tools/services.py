@@ -978,6 +978,11 @@ def create_master_data_export(user):
         if connection.vendor == "postgresql" else
         """SELECT "UUID", "isDeleted", "Json_ext", "version", FORMAT("DateValidFrom", 'yyyy-MM-dd')DateValidFrom, FORMAT("DateValidTo", 'yyyy-MM-dd')DateValidTo, "ReplacementUUID", "ContributionPlanUUID", "ContributionPlanBundleUUID" FROM "tblContributionPlanBundleDetails" WHERE "DateValidTo" IS NULL""",
         "IncomeLevels": """SELECT "IncomeLevelID", "FirstLanguage", "SecondLanguage" FROM "tblIncomeLevels" """,
+        "NonDisablingDiseases": """SELECT "Code", "NonDisablingDisease", "AltLanguage", "SortOrder" FROM "tblNonDisablingDisease" """,
+        "NoDisabilities": """SELECT "Code", "NoDisabilityLabel" as "NoDisability", "AltLanguage", "SortOrder" FROM "tblNoDisability" """,
+        "MutualInsuranceCoverages": """SELECT "Code", "MutualInsuranceCoverage", "AltLanguage", "SortOrder" FROM "tblMutualInsuranceCoverage" """,
+        "HousingTypes": """SELECT "Code", "HousingType", "AltLanguage", "SortOrder" FROM "tblHousingType" """,
+        "ResidenceEnvironments": """SELECT "Code", "ResidenceEnvironment", "AltLanguage", "SortOrder" FROM "tblResidenceEnvironment" """,
     }
 
     results = {}
