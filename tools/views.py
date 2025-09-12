@@ -468,13 +468,17 @@ def upload_claims(request):
 
     for file_obj in request.FILES.values():
         filename = file_obj.name.lower()
+        if not filename.endswith('.zip'):
+            errors.append(f"File '{filename}' is not a ZIP file.")
+            continue
+
         try:
             claims = services.open_claim_archive(file_obj, zip_password)
         except Exception as e:
             logger.exception("Error while extracting ZIP archive")
             errors.append(
                 f"Could not extract ZIP '{filename}'. "
-                f"{'Password missing or incorrect.' if zip_password else 'No password provided, and file may be protected.'}"
+                f"{'Password missing or incorrect.' if zip_password else 'No password provided, and file may be protected.'} {str(e)}"
             )
             continue
 
@@ -486,8 +490,6 @@ def upload_claims(request):
                     services.upload_claim(request.user, xml)
                     imported_count += 1
             except services.InvalidXMLError as exc:
-                # chfid = xml.find("CHFID").text if xml.find("CHFID") is not None else ""
-                # claim_code = xml.find("ClaimCode").text if xml.find("ClaimCode") is not None else ""
                 details = xml.find("Details")
 
                 chfid_el = details.find("CHFID") if details is not None else None
@@ -506,6 +508,9 @@ def upload_claims(request):
                 logger.exception(f"Unexpected error for {claim_filename}")
                 errors.append(f"Unexpected error in '{claim_filename}'")
                 continue
+
+    if imported_count == 0 and errors:
+        errors.insert(0, "No claims were imported due to errors.")
 
     if detailed_errors:
         error_excel_io, error_filename = services.generate_claims_error_excel(detailed_errors, file_obj)

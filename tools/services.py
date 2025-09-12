@@ -1339,18 +1339,24 @@ def open_offline_archive(archive: str, password: str = None):
         zf.extractall(path=temp_folder)
     return temp_folder
             
+            
 def open_claim_archive(archive, password: str = None):
     claims = []
     with pyzipper.AESZipFile(archive, 'r') as zf:
         if password:
             zf.pwd = password.encode('utf-8')
-        for zipinfo in zf.infolist():
-            if zipinfo.filename.lower().endswith('.xml'):
-                try:
-                    xml_file = zf.open(zipinfo)
-                    claims.append((zipinfo.filename, xml_file))
-                except RuntimeError as e:
-                    raise RuntimeError(f"Cannot open file '{zipinfo.filename}': {e}")
+
+        xml_files = [z for z in zf.infolist() if z.filename.lower().endswith('.xml')]
+
+        if not xml_files:
+            raise RuntimeError("ZIP archive contains no XML files.")
+
+        for zipinfo in xml_files:
+            try:
+                xml_file = zf.open(zipinfo)
+                claims.append((zipinfo.filename, xml_file))
+            except RuntimeError as e:
+                raise RuntimeError(f"Cannot open file '{zipinfo.filename}': {e}")
     return claims
 
 
