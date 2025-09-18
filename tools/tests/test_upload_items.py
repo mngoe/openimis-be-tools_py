@@ -15,6 +15,7 @@ from xml.etree import ElementTree
 
 class UploadItemsParseXMLItemsTestCase(TestCase):
 
+
     def test_parse_xml_item_fields_no_code(self):
         xml = b"""
             <Items>
@@ -44,6 +45,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertTrue(errors)
             self.assertEqual(len(errors), 1)
             self.assertIn("Item is missing one of", errors[0])
+
 
     def test_parse_xml_item_fields_no_name(self):
         xml = b"""
@@ -75,6 +77,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("Item is missing one of", errors[0])
 
+
     def test_parse_xml_item_fields_no_item_type(self):
         xml = b"""
             <Items>
@@ -104,6 +107,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertTrue(errors)
             self.assertEqual(len(errors), 1)
             self.assertIn("Item is missing one of", errors[0])
+
 
     def test_parse_xml_item_fields_no_price(self):
         xml = b"""
@@ -135,6 +139,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("Item is missing one of", errors[0])
 
+
     def test_parse_xml_item_fields_no_care_type(self):
         xml = b"""
             <Items>
@@ -164,6 +169,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertTrue(errors)
             self.assertEqual(len(errors), 1)
             self.assertIn("Item is missing one of", errors[0])
+
 
     def test_parse_xml_item_fields_various_price_errors(self):
         code_1 = "ERROR_PRICE_1"
@@ -254,6 +260,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertIn("price is invalid", errors[2])
             self.assertIn(code_3, errors[2])
 
+
     def test_parse_xml_item_fields_error_repeated_code(self):
         code_1 = "CODE_1"
         code_2 = "CODE_2"
@@ -320,6 +327,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertIn("exists multiple times", errors[0])
             self.assertIn(code_1, errors[0])
 
+
     def test_parse_xml_item_fields_error_code_too_small(self):
         xml = b"""
             <Items>
@@ -351,6 +359,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("code is invalid", errors[0])
             self.assertIn("''", errors[0])
+
 
     def test_parse_xml_item_fields_error_code_too_long(self):
         long_boi = "THIS_CODE_IS_REALLY_LONG_WHY?"
@@ -385,6 +394,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertIn("code is invalid", errors[0])
             self.assertIn(long_boi, errors[0])
 
+
     def test_parse_xml_item_fields_error_name_too_small(self):
         xml = b"""
             <Items>
@@ -416,6 +426,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("name is invalid", errors[0])
             self.assertIn("''", errors[0])
+
 
     def test_parse_xml_item_fields_error_name_too_long(self):
         long_boi = "this name is really long, why? Why would anyone prepare a medical " \
@@ -450,6 +461,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("name is invalid", errors[0])
             self.assertIn(long_boi, errors[0])
+
 
     def test_parse_xml_item_fields_error_unknown_type(self):
         unknown_type = "O"
@@ -661,6 +673,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
             self.assertIn("care type is invalid", errors[0])
             self.assertIn(unknown_care_type, errors[0])
 
+
     def test_parse_xml_item_fields_mixed_errors_and_success(self):
         code_ok_1 = "CODE_1"
         code_ok_2 = "CODE_2"
@@ -780,6 +793,7 @@ class UploadItemsParseXMLItemsTestCase(TestCase):
 
 class UploadItemsParseOptionalFieldsTestCase(TestCase):
 
+
     def test_parse_optional_item_fields_all_empty(self):
         xml = f"""
             <Item>
@@ -798,6 +812,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
 
             self.assertFalse(optional_fields)
             self.assertFalse(error)
+
 
     def test_parse_optional_item_fields_all_filled(self):
         xml = f"""
@@ -822,6 +837,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertIn("package", optional_fields)
             self.assertFalse(error)
 
+
     def test_parse_optional_item_fields_filled_and_empty_frq(self):
         xml = f"""
             <Item>
@@ -844,6 +860,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertNotIn("quantity", optional_fields)
             self.assertNotIn("package", optional_fields)
             self.assertFalse(error)
+
 
     def test_parse_optional_item_fields_filled_and_empty_qty(self):
         xml = f"""
@@ -868,6 +885,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertNotIn("package", optional_fields)
             self.assertFalse(error)
 
+
     def test_parse_optional_item_fields_filled_and_empty_pkg(self):
         xml = f"""
             <Item>
@@ -890,6 +908,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertNotIn("quantity", optional_fields)
             self.assertNotIn("frequency", optional_fields)
             self.assertFalse(error)
+
 
     def test_parse_optional_item_fields_filled_and_empty_frq_qty(self):
         xml = f"""
@@ -914,6 +933,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertNotIn("package", optional_fields)
             self.assertFalse(error)
 
+
     def test_parse_optional_item_fields_filled_and_empty_frq_pkg(self):
         xml = f"""
             <Item>
@@ -936,6 +956,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertIn("package", optional_fields)
             self.assertNotIn("quantity", optional_fields)
             self.assertFalse(error)
+
 
     def test_parse_optional_item_fields_filled_and_empty_qty_pkg(self):
         xml = f"""
@@ -960,6 +981,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertNotIn("frequency", optional_fields)
             self.assertFalse(error)
 
+
     def test_parse_optional_item_fields_error_quantity(self):
         xml = f"""
             <Item>
@@ -981,6 +1003,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertTrue(error)
             self.assertIn("quantity is invalid", error)
             self.assertIn(code, error)
+
 
     def test_parse_optional_item_fields_error_frequency(self):
         xml = f"""
@@ -1004,6 +1027,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertIn("frequency is invalid", error)
             self.assertIn(code, error)
 
+
     def test_parse_optional_item_fields_error_package_too_small(self):
         xml = f"""
             <Item>
@@ -1025,6 +1049,7 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
             self.assertTrue(error)
             self.assertIn("package is invalid", error)
             self.assertIn(code, error)
+
 
     def test_parse_optional_item_fields_error_package_too_long(self):
         long_boi = "this package is really long, why? Why would anyone prepare a medical item " \
@@ -1055,10 +1080,12 @@ class UploadItemsParseOptionalFieldsTestCase(TestCase):
 
 class UploadItemsTestCase(TestCase):
 
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.admin_user = create_test_interactive_user(username="testItemsAdmin")
+
 
     @patch("tools.services.parse_xml_items")
     def test_upload_items_multiple_insert_dry_run(self, mock_parsing):
@@ -1095,6 +1122,7 @@ class UploadItemsTestCase(TestCase):
         result = upload_items(self.admin_user, "xml", strategy, dry_run)
 
         self.assertEqual(expected, result)
+
 
     @patch("tools.services.parse_xml_items")
     def test_upload_items_multiple_update_dry_run(self, mock_parsing):
@@ -1133,6 +1161,7 @@ class UploadItemsTestCase(TestCase):
         result = upload_items(self.admin_user, "xml", strategy, dry_run)
 
         self.assertEqual(expected, result)
+
 
     @patch("tools.services.parse_xml_items")
     def test_upload_items_multiple_insert_update_dry_run(self, mock_parsing):
@@ -1173,6 +1202,7 @@ class UploadItemsTestCase(TestCase):
         result = upload_items(self.admin_user, "xml", strategy, dry_run)
 
         self.assertEqual(expected, result)
+
 
     @patch("tools.services.parse_xml_items")
     def test_upload_items_multiple_insert_update_delete_dry_run(self, mock_parsing):
@@ -1216,6 +1246,7 @@ class UploadItemsTestCase(TestCase):
         result = upload_items(self.admin_user, "xml", strategy, dry_run)
 
         self.assertEqual(expected, result)
+
 
     @patch("tools.services.parse_xml_items")
     def test_upload_items_multiple_insert(self, mock_parsing):
@@ -1287,6 +1318,7 @@ class UploadItemsTestCase(TestCase):
         new_item_1.delete()
         new_item_2 = Item.objects.get(code=new_code_2)
         new_item_2.delete()
+
 
     @patch("tools.services.parse_xml_items")
     def test_upload_items_multiple_update(self, mock_parsing):
@@ -1372,6 +1404,7 @@ class UploadItemsTestCase(TestCase):
         db_new_item_2 = Item.objects.get(code=new_code_2, validity_to=None)
         self.assertEqual(db_new_item_2.name, new_name_2)
         db_new_item_2.delete()
+
 
     @patch("tools.services.parse_xml_items")
     def test_upload_items_multiple_insert_update(self, mock_parsing):
@@ -1471,6 +1504,7 @@ class UploadItemsTestCase(TestCase):
         db_insert_item_1.delete()
         db_insert_item_2 = Item.objects.get(code=insert_code_2, validity_to=None)
         db_insert_item_2.delete()
+
 
     @patch("tools.services.parse_xml_items")
     def test_upload_items_multiple_insert_update_delete(self, mock_parsing):
