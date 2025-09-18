@@ -433,6 +433,7 @@ def download_feedbacks(request):
 
     return response
 
+
 @api_view(["GET"])
 def download_renewals(request):
     if not request.user.has_perms(ToolsConfig.extracts_officer_renewals_perms):
@@ -520,6 +521,7 @@ def upload_claims(request):
             "success": False,
             "errors": errors,
             "imported": imported_count,
+            "failed": len(detailed_errors),
             "excel_base64": excel_base64,
             "excel_filename": error_filename
         }, status=400)
@@ -527,7 +529,8 @@ def upload_claims(request):
     return JsonResponse({
         "success": len(errors) == 0, 
         "errors": errors,
-        "imported": imported_count
+        "imported": imported_count,
+        "failed": len(detailed_errors),
     }, status=400 if errors else 200)
 
 
