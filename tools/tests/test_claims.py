@@ -27,6 +27,7 @@ from location.test_helpers import (
     create_test_location,
 )
 from insuree.test_helpers import create_test_insuree
+from program.test_helpers import create_test_program
 
 
 class UploadClaimsTestCase(TestCase):
@@ -56,6 +57,7 @@ class UploadClaimsTestCase(TestCase):
             
             
     def test_upload_claims_with_subservices(self):
+        test_program = create_test_program(code="HIV1", name="HIV")
         with patch('tools.services.settings.ROW_SECURITY', new_callable=PropertyMock) as row_security_mock:
             row_security_mock.return_value = True
             mock_user = mock.Mock(is_anonymous=False)
@@ -82,7 +84,7 @@ class UploadClaimsTestCase(TestCase):
                     <HFCode>{hf.code}</HFCode>
                     <ClaimAdmin>DRFPCSU</ClaimAdmin>
                     <ClaimCode>{claim_admin.code}</ClaimCode>
-                    <Program>VIH</Program>
+                    <Program>HIV</Program>
                     <CHFID>{insuree.chf_id}</CHFID>
                     <StartDate>2024-06-03</StartDate>
                     <EndDate>2024-06-03</EndDate>
