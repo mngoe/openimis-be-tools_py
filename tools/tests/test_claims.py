@@ -11,11 +11,11 @@ from datetime import date, timedelta
 from core.test_helpers import create_test_officer
 
 from policy.services import insert_renewals
-from claim.models import Claim, ClaimAdmin
-from medical.models import Diagnosis 
+from claim.models import Claim
 from claim.services import create_feedback_prompt
 from claim.test_helpers import (
     create_test_claim,
+    create_test_claim_admin
 )
 from medical.test_helpers import (
     create_test_diagnosis,
@@ -72,18 +72,15 @@ class UploadClaimsTestCase(TestCase):
             subservice = create_test_service("A")
             subitem = create_test_item('D')
             diagnosis = create_test_diagnosis()
-            claim_admin = ClaimAdmin.objects.create(
-                code="TEST1",last_name="Positif",
-                email_id="positif@gmail.com",has_login=True,audit_user_id=1
-            )
+            claim_admin = create_test_claim_admin(custom_props={'code':"DRFPCSU1", 'health_facility':hf})
 
             claim_with_subservices_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <Claim>
                 <Details>
                     <ClaimDate>2025-05-08</ClaimDate>
                     <HFCode>{hf.code}</HFCode>
-                    <ClaimAdmin>DRFPCSU</ClaimAdmin>
-                    <ClaimCode>{claim_admin.code}</ClaimCode>
+                    <ClaimAdmin>{claim_admin.code}</ClaimAdmin>
+                    <ClaimCode>Cl00124</ClaimCode>
                     <Program>HIV</Program>
                     <CHFID>{insuree.chf_id}</CHFID>
                     <StartDate>2024-06-03</StartDate>

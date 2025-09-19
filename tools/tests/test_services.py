@@ -13,11 +13,11 @@ class ImportServiceTest(TestCase):
 
 
     def test_simple_import(self):
-        dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'service_example.json')
         resource = ServiceResource(self.user.id_for_audit)
         dataset = Dataset()
 
-        with open(os.path.join(dir_path, 'tests/service_example.json'), 'r') as f:
+        with open(file_path, 'r') as f:
             dataset.load(f.read())
             result = resource.import_data(
                 dataset, dry_run=True, use_transactions=True,
@@ -27,6 +27,6 @@ class ImportServiceTest(TestCase):
 
 
     def test_simple_export(self):
-        result = ServiceResource(self.user).export().dict
+        result = ServiceResource(self.user.id_for_audit).export().dict
         self.assertTrue(result)
         
