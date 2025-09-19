@@ -72,14 +72,14 @@ class UploadClaimsTestCase(TestCase):
             subservice = create_test_service("A")
             subitem = create_test_item('D')
             diagnosis = create_test_diagnosis()
-            claim_admin = create_test_claim_admin(custom_props={'code':"DRFPCSU1", 'health_facility':hf})
+            claim_admin = create_test_claim_admin(custom_props={"code": "DRFPCSU1"})
 
             claim_with_subservices_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <Claim>
                 <Details>
                     <ClaimDate>2025-05-08</ClaimDate>
                     <HFCode>{hf.code}</HFCode>
-                    <ClaimAdmin>{claim_admin.code}</ClaimAdmin>
+                    <ClaimAdmin>DRFPCSU1</ClaimAdmin>
                     <ClaimCode>Cl00124</ClaimCode>
                     <Program>HIV</Program>
                     <CHFID>{insuree.chf_id}</CHFID>
