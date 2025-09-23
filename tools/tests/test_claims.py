@@ -54,8 +54,7 @@ class UploadClaimsTestCase(TestCase):
                 "User cannot upload claims for health facility WRONG",
                 str(cm.exception),
             )
-            
-            
+
     def test_upload_claims_with_subservices(self):
         test_program = create_test_program(code="HIV1", name="HIV")
         with patch('tools.services.settings.ROW_SECURITY', new_callable=PropertyMock) as row_security_mock:
@@ -73,6 +72,7 @@ class UploadClaimsTestCase(TestCase):
             subitem = create_test_item('D')
             diagnosis = create_test_diagnosis()
             claim_admin = create_test_claim_admin()
+            claim_admin.refresh_from_db()
 
             claim_with_subservices_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <Claim>
@@ -129,6 +129,7 @@ class UploadClaimsTestCase(TestCase):
 
             self.assertTrue(result)
 
+
 class GetXmlElement(TestCase):
     def test_get_xml_element(self):
         test_xml = ElementTree.fromstring(
@@ -175,7 +176,7 @@ class register(TestCase):
             reminding_interval=365, 
             location_id=cls.claim.insuree.family.location.id, 
             location_levels=4)
-        
+
     def test_generating_feedback(self):
         class DummyUser:
             id_for_audit = -1
@@ -187,13 +188,10 @@ class register(TestCase):
         create_feedback_prompt(self.claim, user=DummyUser())
         zip = create_officer_feedbacks_export(mock_user, self.test_officer)
         self.assertNotEqual(zip, None)
-        
+
     def test_generating_renewal(self):
         mock_user = mock.Mock(is_anonymous=False)
         mock_user.has_perm = mock.MagicMock(return_value=True)
         mock_user.is_imis_admin = mock.MagicMock(return_value=False)
         zip = create_officer_renewals_export(mock_user, self.test_officer)
         self.assertNotEqual(zip, None)
-    
-    
-    
