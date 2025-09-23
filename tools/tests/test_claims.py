@@ -11,8 +11,7 @@ from datetime import date, timedelta
 from core.test_helpers import create_test_officer
 
 from policy.services import insert_renewals
-from claim.models import Claim, ClaimAdmin
-from medical.models import Diagnosis 
+from claim.models import Claim
 from claim.services import create_feedback_prompt
 from claim.test_helpers import (
     create_test_claim,
@@ -55,7 +54,6 @@ class UploadClaimsTestCase(TestCase):
                 "User cannot upload claims for health facility WRONG",
                 str(cm.exception),
             )
-
 
     def test_upload_claims_with_subservices(self):
         test_program = create_test_program(code="HIV1", name="HIV")
@@ -178,7 +176,7 @@ class register(TestCase):
             reminding_interval=365, 
             location_id=cls.claim.insuree.family.location.id, 
             location_levels=4)
-        
+
     def test_generating_feedback(self):
         class DummyUser:
             id_for_audit = -1
@@ -190,13 +188,10 @@ class register(TestCase):
         create_feedback_prompt(self.claim, user=DummyUser())
         zip = create_officer_feedbacks_export(mock_user, self.test_officer)
         self.assertNotEqual(zip, None)
-        
+
     def test_generating_renewal(self):
         mock_user = mock.Mock(is_anonymous=False)
         mock_user.has_perm = mock.MagicMock(return_value=True)
         mock_user.is_imis_admin = mock.MagicMock(return_value=False)
         zip = create_officer_renewals_export(mock_user, self.test_officer)
         self.assertNotEqual(zip, None)
-    
-    
-    
