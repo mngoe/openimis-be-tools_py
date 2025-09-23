@@ -16,6 +16,7 @@ from medical.models import Diagnosis
 from claim.services import create_feedback_prompt
 from claim.test_helpers import (
     create_test_claim,
+    create_test_claim_admin
 )
 from medical.test_helpers import (
     create_test_diagnosis,
@@ -54,8 +55,8 @@ class UploadClaimsTestCase(TestCase):
                 "User cannot upload claims for health facility WRONG",
                 str(cm.exception),
             )
-            
-            
+
+
     def test_upload_claims_with_subservices(self):
         test_program = create_test_program(code="HIV1", name="HIV")
         with patch('tools.services.settings.ROW_SECURITY', new_callable=PropertyMock) as row_security_mock:
@@ -72,18 +73,16 @@ class UploadClaimsTestCase(TestCase):
             subservice = create_test_service("A")
             subitem = create_test_item('D')
             diagnosis = create_test_diagnosis()
-            claim_admin = ClaimAdmin.objects.create(
-                code="TEST1",last_name="Positif",
-                email_id="positif@gmail.com",has_login=True,audit_user_id=1
-            )
+            claim_admin = create_test_claim_admin()
+            claim_admin.refresh_from_db()
 
             claim_with_subservices_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <Claim>
                 <Details>
                     <ClaimDate>2025-05-08</ClaimDate>
                     <HFCode>{hf.code}</HFCode>
-                    <ClaimAdmin>DRFPCSU</ClaimAdmin>
-                    <ClaimCode>{claim_admin.code}</ClaimCode>
+                    <ClaimAdmin>{claim_admin.code}</ClaimAdmin>
+                    <ClaimCode>Cl00124</ClaimCode>
                     <Program>HIV</Program>
                     <CHFID>{insuree.chf_id}</CHFID>
                     <StartDate>2024-06-03</StartDate>
@@ -131,6 +130,7 @@ class UploadClaimsTestCase(TestCase):
             )
 
             self.assertTrue(result)
+
 
 class GetXmlElement(TestCase):
     def test_get_xml_element(self):
