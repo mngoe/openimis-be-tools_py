@@ -10,10 +10,10 @@ from tools.services import validate_imported_item_row, validate_imported_service
 
 def process_imported_patient_categories(row):
     # Transform the patient category data
-    adult_cat = int(row["adult_cat"])
-    minor_cat = int(row["minor_cat"])
-    female_cat = int(row["female_cat"])
-    male_cat = int(row["male_cat"])
+    adult_cat = int(row.pop("adult_cat", 1))
+    minor_cat = int(row.pop("minor_cat", 1))
+    female_cat = int(row.pop("female_cat", 1))
+    male_cat = int(row.pop("male_cat", 1))
 
     category = 0
     if male_cat:
@@ -26,10 +26,6 @@ def process_imported_patient_categories(row):
         category = category | PATIENT_CATEGORY_MASK_MINOR
 
     # Remove the now useless fields
-    row.pop("adult_cat")
-    row.pop("minor_cat")
-    row.pop("female_cat")
-    row.pop("male_cat")
 
     # Add the merged patient category value
     row["patient_category"] = category
@@ -78,7 +74,7 @@ class ItemServiceResource(resources.ModelResource):
     # This method is called once before importing data
     # This is used to add the two mandatory fields that are required for creating a medical.Item
     # If self.fields do not have a fields.Field, with the column_name set up, then these columns are ignored during import
-    def before_import(self, dataset, using_transactions, dry_run, **kwargs):
+    def before_import(self, dataset, **kwargs):
         if "patient_category" not in self.fields:
             self.fields["patient_category"] = fields.Field(attribute='patient_category', column_name="patient_category",
                                                            saves_null_values=False,
@@ -87,6 +83,7 @@ class ItemServiceResource(resources.ModelResource):
             self.fields["audit_user_id"] = fields.Field(attribute='audit_user_id', column_name="audit_user_id",
                                                         saves_null_values=False,
                                                         widget=IntegerWidget())
+        super().before_import(dataset, **kwargs)
 
     # This method is called when the user flags a row to be deleted (the "delete" column value is '1')
     def for_delete(self, row, instance):
@@ -102,10 +99,12 @@ class ItemResource(ItemServiceResource):
 
         # These are the fields that are going to get exported/
         fields = ('code', 'name', 'type', 'package', 'price', 'quantity',
-                  'care_type', 'frequency', 'patient_category')
+                  'care_type', 'frequency', 'patient_category', 
+                  'male_cat', 'female_cat', 'adult_cat', 'minor_cat')
 
         # You can customize the order for exports, but this order is also used during upload
         # (to know which fields will be there, instead of reading the headers)
+        export_order = fields
         # export_order = ('code', 'name', 'type', 'package', 'price', 'quantity',
         #                 'care_type', 'frequency', 'male_cat', 'female_cat', 'adult_cat', 'minor_cat')
 
@@ -131,7 +130,9 @@ class ServiceResource(ItemServiceResource):
 
         # These are the fields that are going to get exported/
         fields = ('code', 'name', 'type', 'level', 'price', 'category',
-                  'care_type', 'frequency', 'patient_category')
+                  'care_type', 'frequency', 'patient_category', 
+                  'male_cat', 'female_cat', 'adult_cat', 'minor_cat')
+        export_order = fields
 
     # This method is called once for each row during import
     # This is where you can do some data validation/modification + add the missing data

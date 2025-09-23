@@ -1,0 +1,23 @@
+[
+  {
+    "code": "TEST1",
+    "name": "Test item 1",
+    "type": "D",
+    "package": "10 TABLETS",
+    "price": 720,
+    "quantity": 1,
+    "care_type": "B",
+    "frequency": 0
+  },
+  {
+    "code": "TEST2",
+    "name": "Test item 2",
+    "type": "D",
+    "package": "10 TABLETS",
+    "price": 720,
+    "quantity": 1,
+    "care_type": "I",
+    "frequency": 0
+  }
+
+]
