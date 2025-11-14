@@ -963,9 +963,23 @@ def create_master_data_export(user):
         if connection.vendor == "postgresql" else
         """SELECT "OfficerID", "OfficerUUID", "Code", "LastName", "OtherNames", "Phone", "LocationId", "OfficerIDSubst", FORMAT("WorksTo", 'yyyy-MM-dd') worksTo FROM "tblOfficer" WHERE "ValidityTo" IS NULL;""",
         "payers": """SELECT "PayerID", "PayerName", "LocationId" FROM "tblPayer" WHERE "ValidityTo" IS NULL;""",
-        "products": """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod", TO_CHAR("DateFrom", 'yyyy-MM-dd')dateFrom, TO_CHAR("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID" , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee", "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3", "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold", "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc", "EnrolmentDiscountPeriod", "GracePeriod", "Program" FROM "tblProduct" WHERE "ValidityTo" IS NULL"""
+        "products": """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod",
+            TO_CHAR("DateFrom", 'yyyy-MM-dd')dateFrom, TO_CHAR("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID",
+            "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee",
+            "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3",
+            "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold",
+            "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc",
+            "EnrolmentDiscountPeriod", "GracePeriod", "Program", "Min Age" AS minAge, "Max Age" AS maxAge
+        FROM "tblProduct" WHERE "ValidityTo" IS NULL"""
         if connection.vendor == "postgresql" else
-        """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod", FORMAT("DateFrom", 'yyyy-MM-dd')dateFrom, FORMAT("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID" , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee", "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3", "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold", "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc", "EnrolmentDiscountPeriod", "GracePeriod", "Program" FROM "tblProduct" WHERE "ValidityTo" IS NULL""",
+        """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod",
+            FORMAT("DateFrom", 'yyyy-MM-dd')dateFrom, FORMAT("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID"
+            , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee",
+            "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3",
+            "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold",
+            "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc",
+            "EnrolmentDiscountPeriod", "GracePeriod", "Program", "Min Age" AS minAge, "Max Age" AS maxAge
+        FROM "tblProduct" WHERE "ValidityTo" IS NULL""",
         "professions": """SELECT "ProfessionId", "Profession", "SortOrder", "AltLanguage" FROM "tblProfessions";""",
         "relations": """SELECT "RelationId", "Relation", "SortOrder", "AltLanguage" FROM "tblRelations";""",
         "phoneDefaults": """SELECT "RuleName", "RuleValue" FROM "tblIMISDefaultsPhone";""",
