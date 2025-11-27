@@ -969,7 +969,7 @@ def create_master_data_export(user):
             "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3",
             "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold",
             "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc",
-            "EnrolmentDiscountPeriod", "GracePeriod", "Program", "Min Age" AS minAge, "Max Age" AS maxAge
+            "EnrolmentDiscountPeriod", "GracePeriod", "program", "Min Age" AS minAge, "Max Age" AS maxAge
         FROM "tblProduct" WHERE "ValidityTo" IS NULL"""
         if connection.vendor == "postgresql" else
         """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod",
