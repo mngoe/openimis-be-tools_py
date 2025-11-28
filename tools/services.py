@@ -14,7 +14,7 @@ from itertools import chain
 
 from contribution.models import Premium
 from core.utils import filter_validity
-from django.db.models import Manager, Prefetch
+from django.db.models import Manager
 from django.db.models.query_utils import Q
 from django.http import JsonResponse
 from import_export.results import Result
@@ -34,7 +34,7 @@ from medical_pricelist.models import ServicesPricelist, ItemsPricelist
 from claim.models import ClaimAdmin, Claim, Feedback, FeedbackPrompt
 from policy.models import Policy
 from policy.services import update_insuree_policies
-from .utils import dictfetchall, sanitize_xml, dmy_format_sql
+from .utils import dictfetchall, sanitize_xml
 from .models import Extract
 import logging
 from dataclasses import dataclass
@@ -963,9 +963,23 @@ def create_master_data_export(user):
         if connection.vendor == "postgresql" else
         """SELECT "OfficerID", "OfficerUUID", "Code", "LastName", "OtherNames", "Phone", "LocationId", "OfficerIDSubst", FORMAT("WorksTo", 'yyyy-MM-dd') worksTo FROM "tblOfficer" WHERE "ValidityTo" IS NULL;""",
         "payers": """SELECT "PayerID", "PayerName", "LocationId" FROM "tblPayer" WHERE "ValidityTo" IS NULL;""",
-        "products": """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod", TO_CHAR("DateFrom", 'yyyy-MM-dd')dateFrom, TO_CHAR("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID" , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee", "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3", "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold", "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc", "EnrolmentDiscountPeriod", "GracePeriod", "program" FROM "tblProduct" WHERE "ValidityTo" IS NULL"""
+        "products": """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod",
+            TO_CHAR("DateFrom", 'yyyy-MM-dd')dateFrom, TO_CHAR("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID",
+            "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee",
+            "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3",
+            "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold",
+            "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc",
+            "EnrolmentDiscountPeriod", "GracePeriod", "program", "Min Age" AS minAge, "Max Age" AS maxAge
+        FROM "tblProduct" WHERE "ValidityTo" IS NULL"""
         if connection.vendor == "postgresql" else
-        """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod", FORMAT("DateFrom", 'yyyy-MM-dd')dateFrom, FORMAT("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID" , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee", "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3", "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold", "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc", "EnrolmentDiscountPeriod", "GracePeriod", "Program" FROM "tblProduct" WHERE "ValidityTo" IS NULL""",
+        """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod",
+            FORMAT("DateFrom", 'yyyy-MM-dd')dateFrom, FORMAT("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID"
+            , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee",
+            "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3",
+            "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold",
+            "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc",
+            "EnrolmentDiscountPeriod", "GracePeriod", "Program", "Min Age" AS minAge, "Max Age" AS maxAge
+        FROM "tblProduct" WHERE "ValidityTo" IS NULL""",
         "professions": """SELECT "ProfessionId", "Profession", "SortOrder", "AltLanguage" FROM "tblProfessions";""",
         "relations": """SELECT "RelationId", "Relation", "SortOrder", "AltLanguage" FROM "tblRelations";""",
         "phoneDefaults": """SELECT "RuleName", "RuleValue" FROM "tblIMISDefaultsPhone";""",
@@ -1009,7 +1023,6 @@ def create_master_data_export(user):
 
         return zip_file
 
-
 def create_officer_feedbacks_export(user, officer):
     """
     SELECT F.ClaimId,F.OfficerId,O.Code OfficerCode, I.CHFID, I.LastName, I.OtherNames, HF.HFCode, HF.HFName,C.ClaimCode,CONVERT(NVARCHAR(10),C.DateFrom,103)DateFrom, CONVERT(NVARCHAR(10),C.DateTo,103)DateTo,O.Phone, CONVERT(NVARCHAR(10),F.FeedbackPromptDate,103)FeedbackPromptDate"
@@ -1041,10 +1054,10 @@ def create_officer_feedbacks_export(user, officer):
             "HFCode": p.claim.health_facility.code,
             "HFName": p.claim.health_facility.name,
             "ClaimCode": p.claim.code,
-            "DateFrom": p.claim.date_from.strftime(format_date),
-            "DateTo": p.claim.date_to.strftime(format_date),
+            "DateFrom": p.claim.date_from.strftime(format_date) if p.claim.date_from else None,
+            "DateTo": p.claim.date_to.strftime(format_date) if p.claim.date_to else None,
             "Phone": officer.phone,
-            "FeedbackPromptDate": p.feedback_prompt_date.strftime(format_date)
+            "FeedbackPromptDate": p.feedback_prompt_date.strftime(format_date) if p.feedback_prompt_date else None
         })
 
     with tempfile.TemporaryDirectory() as tmp_dir_name:
