@@ -1,4 +1,5 @@
 from django.db import migrations
+from django.conf import settings
 
 class Migration(migrations.Migration):
 
@@ -374,6 +375,271 @@ class Migration(migrations.Migration):
                 
                 RETURN 0
             END
+
+            """
+            if settings.MSSQL else
+            """
+            CREATE OR REPLACE FUNCTION public."uspUpdateClaimFromPhone"(
+                p_xml TEXT,
+                p_bypasssubmit BOOLEAN DEFAULT FALSE
+            )
+            RETURNS INTEGER AS $$
+            DECLARE
+                v_claimid INTEGER;
+                v_claimdate DATE;
+                v_hfcode VARCHAR(8);
+                v_claimadmin VARCHAR(8);
+                v_claimcode VARCHAR(50);
+                v_chfid VARCHAR(50);
+                v_startdate DATE;
+                v_enddate DATE;
+                v_icdcode VARCHAR(6);
+                v_comment TEXT;
+                v_total NUMERIC(18,2);
+                v_icdcode1 VARCHAR(6);
+                v_icdcode2 VARCHAR(6);
+                v_icdcode3 VARCHAR(6);
+                v_icdcode4 VARCHAR(6);
+                v_visittype CHAR(1);
+                v_guaranteeid VARCHAR(50);
+                v_program VARCHAR(100);
+                v_programid INTEGER;
+
+                v_hfid INTEGER;
+                v_claimadminid INTEGER;
+                v_insureeid INTEGER;
+
+                v_icdid INTEGER;
+                v_icdid1 INTEGER;
+                v_icdid2 INTEGER;
+                v_icdid3 INTEGER;
+                v_icdid4 INTEGER;
+
+                v_totalitems NUMERIC(18,2) := 0;
+                v_totalservices NUMERIC(18,2) := 0;
+
+                v_isclaimadminrequired BOOLEAN;
+                v_isclaimadminoptional BOOLEAN;
+
+                v_xml XML;
+            BEGIN
+                -- Convert XML
+                v_xml := p_xml::XML;
+
+                --   EXTRACTION XML
+                SELECT
+                    (xpath('//Claim/Details/ClaimDate/text()', v_xml))[1]::TEXT::DATE,
+                    (xpath('//Claim/Details/HFCode/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/ClaimAdmin/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/ClaimCode/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/CHFID/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/StartDate/text()', v_xml))[1]::TEXT::DATE,
+                    (xpath('//Claim/Details/EndDate/text()', v_xml))[1]::TEXT::DATE,
+                    (xpath('//Claim/Details/ICDCode/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/Comment/text()', v_xml))[1]::TEXT,
+                    COALESCE(NULLIF((xpath('//Claim/Details/Total/text()', v_xml))[1]::TEXT, ''), '0')::NUMERIC,
+                    (xpath('//Claim/Details/ICDCode1/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/ICDCode2/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/ICDCode3/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/ICDCode4/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/VisitType/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/GuaranteeNo/text()', v_xml))[1]::TEXT,
+                    (xpath('//Claim/Details/Program/text()', v_xml))[1]::TEXT
+                INTO
+                    v_claimdate, v_hfcode, v_claimadmin, v_claimcode, v_chfid,
+                    v_startdate, v_enddate, v_icdcode, v_comment, v_total,
+                    v_icdcode1, v_icdcode2, v_icdcode3, v_icdcode4,
+                    v_visittype, v_guaranteeid, v_program;
+
+                --   CONTROLES ADMINISTRATIFS
+
+                SELECT
+                    CASE WHEN "Adjustibility" = 'M' THEN TRUE ELSE FALSE END,
+                    CASE WHEN "Adjustibility" = 'O' THEN TRUE ELSE FALSE END
+                INTO v_isclaimadminrequired, v_isclaimadminoptional
+                FROM "tblControls"
+                WHERE "FieldName" = 'ClaimAdministrator';
+
+                --   VALIDATION HF
+
+                SELECT "HfID"
+                INTO v_hfid
+                FROM "tblHF"
+                WHERE "HFCode" = v_hfcode AND "ValidityTo" IS NULL;
+
+                IF NOT FOUND THEN RETURN 1; END IF;
+
+                --   DUPLICATE CLAIM
+
+                PERFORM 1 FROM "tblClaim"
+                WHERE "ClaimCode" = v_claimcode
+                AND "HFID" = v_hfid
+                AND "ValidityTo" IS NULL;
+
+                IF FOUND THEN RETURN 2; END IF;
+
+                --   INSUREE
+
+                SELECT "InsureeID"
+                INTO v_insureeid
+                FROM "tblInsuree"
+                WHERE "CHFID" = v_chfid AND "ValidityTo" IS NULL;
+
+                IF NOT FOUND THEN RETURN 3; END IF;
+
+                --   DATES
+
+                IF v_enddate < v_startdate THEN RETURN 4; END IF;
+
+                --   ICD CODES
+
+                SELECT "ICDID"
+                INTO v_icdid
+                FROM "tblICDCodes"
+                WHERE "ICDCode" = v_icdcode AND "ValidityTo" IS NULL;
+
+                IF NOT FOUND THEN RETURN 5; END IF;
+
+                -- ICD secondaires
+
+                IF v_icdcode1 IS NOT NULL AND TRIM(v_icdcode1) <> '' THEN
+                    SELECT "ICDID" INTO v_icdid1
+                    FROM "tblICDCodes"
+                    WHERE "ICDCode" = v_icdcode1 AND "ValidityTo" IS NULL;
+
+                    IF NOT FOUND THEN RETURN 5; END IF;
+                END IF;
+
+                IF v_icdcode2 IS NOT NULL AND TRIM(v_icdcode2) <> '' THEN
+                    SELECT "ICDID" INTO v_icdid2
+                    FROM "tblICDCodes"
+                    WHERE "ICDCode" = v_icdcode2 AND "ValidityTo" IS NULL;
+
+                    IF NOT FOUND THEN RETURN 5; END IF;
+                END IF;
+
+                IF v_icdcode3 IS NOT NULL AND TRIM(v_icdcode3) <> '' THEN
+                    SELECT "ICDID" INTO v_icdid3
+                    FROM "tblICDCodes"
+                    WHERE "ICDCode" = v_icdcode3 AND "ValidityTo" IS NULL;
+
+                    IF NOT FOUND THEN RETURN 5; END IF;
+                END IF;
+
+                IF v_icdcode4 IS NOT NULL AND TRIM(v_icdcode4) <> '' THEN
+                    SELECT "ICDID" INTO v_icdid4
+                    FROM "tblICDCodes"
+                    WHERE "ICDCode" = v_icdcode4 AND "ValidityTo" IS NULL;
+
+                    IF NOT FOUND THEN RETURN 5; END IF;
+                END IF;
+
+                -- PROGRAMME
+
+                SELECT "idProgram"
+                INTO v_programid
+                FROM "tblProgram"
+                WHERE "Name" = v_program;
+
+                IF NOT FOUND THEN RETURN 10; END IF;
+
+                -- CLAIM ADMIN
+
+                IF v_isclaimadminrequired THEN
+                    SELECT "ClaimAdminId"
+                    INTO v_claimadminid
+                    FROM "tblClaimAdmin"
+                    WHERE "ClaimAdminCode" = v_claimadmin AND "ValidityTo" IS NULL;
+
+                    IF NOT FOUND THEN RETURN 9; END IF;
+                ELSIF v_isclaimadminoptional THEN
+                    SELECT "ClaimAdminId"
+                    INTO v_claimadminid
+                    FROM "tblClaimAdmin"
+                    WHERE "ClaimAdminCode" = v_claimadmin AND "ValidityTo" IS NULL;
+                END IF;
+
+                -- CREATION TEMP TABLES
+
+                DROP TABLE IF EXISTS tmp_items;
+                CREATE TEMP TABLE tmp_items (
+                    itemcode VARCHAR(6),
+                    itemprice NUMERIC(18,2),
+                    itemquantity NUMERIC(18,2)
+                );
+
+                DROP TABLE IF EXISTS tmp_services;
+                CREATE TEMP TABLE tmp_services (
+                    servicecode VARCHAR(6),
+                    serviceprice NUMERIC(18,2),
+                    servicequantity NUMERIC(18,2)
+                );
+
+                -- INSERT ITEMS
+
+                INSERT INTO tmp_items
+                SELECT
+                    (xpath('//ItemCode/text()', x))[1]::TEXT,
+                    (xpath('//ItemPrice/text()', x))[1]::TEXT::NUMERIC,
+                    (xpath('//ItemQuantity/text()', x))[1]::TEXT::NUMERIC
+                FROM unnest(xpath('//Claim/Items/Item', v_xml)) AS x;
+
+                -- INSERT SERVICES
+
+                INSERT INTO tmp_services
+                SELECT
+                    (xpath('//ServiceCode/text()', x))[1]::TEXT,
+                    (xpath('//ServicePrice/text()', x))[1]::TEXT::NUMERIC,
+                    (xpath('//ServiceQuantity/text()', x))[1]::TEXT::NUMERIC
+                FROM unnest(xpath('//Claim/Services/Service', v_xml)) AS x;
+
+                -- VALIDATION ITEMS / SERVICES
+
+                IF EXISTS (
+                    SELECT 1 FROM tmp_items ti
+                    LEFT JOIN "tblItems" i
+                        ON i."ItemCode" = ti.itemcode AND i."ValidityTo" IS NULL
+                    WHERE i."ItemID" IS NULL
+                ) THEN RETURN 7; END IF;
+
+                IF EXISTS (
+                    SELECT 1 FROM tmp_services ts
+                    LEFT JOIN "tblServices" s
+                        ON s."ServCode" = ts.servicecode AND s."ValidityTo" IS NULL
+                    WHERE s."ServiceID" IS NULL
+                ) THEN RETURN 8; END IF;
+
+                -- INSERT CLAIM
+
+                INSERT INTO "tblClaim"(
+                    "InsureeID","ClaimCode","DateFrom","DateTo","ICDID",
+                    "ClaimStatus","Claimed","DateClaimed","Explanation",
+                    "AuditUserID","HFID","ClaimAdminId",
+                    "ICDID1","ICDID2","ICDID3","ICDID4",
+                    "program","VisitType","GuaranteeId"
+                )
+                VALUES (
+                    v_insureeid, v_claimcode, v_startdate, v_enddate, v_icdid,
+                    2, v_total, v_claimdate, v_comment,
+                    -1, v_hfid, v_claimadminid,
+                    v_icdid1, v_icdid2, v_icdid3, v_icdid4,
+                    v_programid, v_visittype, v_guaranteeid
+                )
+                RETURNING "ClaimID" INTO v_claimid;
+
+                -- SUBMIT
+
+                IF NOT p_bypasssubmit THEN
+                    PERFORM uspsubmitsingleclaim(-1, v_claimid, 0);
+                END IF;
+
+                RETURN 0;
+
+            EXCEPTION WHEN OTHERS THEN
+                RAISE NOTICE 'Error in uspUpdateClaimFromPhone: %', SQLERRM;
+                RETURN -1;
+            END;
+            $$ LANGUAGE plpgsql;
 
             """,
         )
