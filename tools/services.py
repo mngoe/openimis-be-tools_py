@@ -969,7 +969,7 @@ def create_master_data_export(user):
             "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3",
             "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold",
             "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc",
-            "EnrolmentDiscountPeriod", "GracePeriod", "Program", "Min Age" AS minAge, "Max Age" AS maxAge
+            "EnrolmentDiscountPeriod", "GracePeriod", "program", "Min Age" AS minAge, "Max Age" AS maxAge
         FROM "tblProduct" WHERE "ValidityTo" IS NULL"""
         if connection.vendor == "postgresql" else
         """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod",
@@ -984,7 +984,7 @@ def create_master_data_export(user):
         "relations": """SELECT "RelationId", "Relation", "SortOrder", "AltLanguage" FROM "tblRelations";""",
         "phoneDefaults": """SELECT "RuleName", "RuleValue" FROM "tblIMISDefaultsPhone";""",
         "genders": """SELECT "Code", "Gender", "AltLanguage", "SortOrder" FROM "tblGender";""",
-        "programs": """SELECT "idProgram", "programCode", "Name", TO_CHAR("validityDateFrom", 'yyyy-MM-dd')validityDateFrom, TO_CHAR("validityDateTo", 'yyyy-MM-dd')validityDateTo FROM "tblProgram WHERE "validityDateTo" IS NULL";"""
+        "programs": """SELECT "idProgram", "programCode", "Name", TO_CHAR("validityDateFrom", 'yyyy-MM-dd')validityDateFrom, TO_CHAR("validityDateTo", 'yyyy-MM-dd')validityDateTo FROM "tblProgram" WHERE "validityDateTo" IS NULL;"""
         if connection.vendor == "postgresql" else
         """SELECT "idProgram", "programCode", "Name", FORMAT("validityDateFrom", 'yyyy-MM-dd')validityDateFrom, FORMAT("validityDateTo", 'yyyy-MM-dd')validityDateTo FROM "tblProgram" WHERE "validityDateTo" IS NULL;""",
         "cheques": """SELECT "idChequeImportLine", "chequeImportLineCode", TO_CHAR("chequeImportLineDate", 'yyyy-MM-dd') chequeImportLineDate, "chequeImportLineStatus" FROM "tblChequeSanteImportLine";"""
