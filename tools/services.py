@@ -1312,23 +1312,17 @@ def upload_claim(user, xml):
                 result = -1
 
         elif vendor == 'postgresql':
-            sql = """
-                SELECT public."uspUpdateClaimFromPhone"(%s::text, TRUE);
-            """
-            cursor.execute(sql, (xml_data,))
-            result = cursor.fetchone()[0]
+            try:
+                cursor.execute('SELECT public."uspUpdateClaimFromPhone"(%s::text, TRUE);', (xml_data,))
+                result = cursor.fetchone()[0]
+            except Exception as e:
+                logger.error(f"PostgreSQL error: {e}")
+                print(f"PostgreSQL error: {e} !!!!") 
+                raise
+
         else:
             raise NotImplementedError(f"Database {vendor} not supported")
 
-        # cursor.execute(sql, (xml_data,))
-        # result_sets = []
-        # while True:
-        #     if cursor.description:
-        #         result_sets.append(cursor.fetchall())
-        #     if not cursor.nextset():
-        #         break
-            
-        # res = result_sets[-1][0][0] if result_sets and result_sets[-1] else None
         res = result
         # # We have to take the second result set. That's the one that contains the results
         # cursor.nextset()
