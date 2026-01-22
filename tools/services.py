@@ -1269,6 +1269,7 @@ def create_phone_extract(user, location_id, with_insuree=False):
 
 def upload_claim(user, xml):
     logger.info(f"Uploading claim with user {user.id}")
+    vendor = connection.vendor
 
     if settings.ROW_SECURITY:
         logger.info("Check that user can upload claims in claims' health facilities")
@@ -1285,29 +1286,44 @@ def upload_claim(user, xml):
 
     with connection.cursor() as cursor:
         if isinstance(xml, ElementTree.ElementTree):
-            xml_data = ElementTree.tostring(xml.getroot())
+            # xml_data = ElementTree.tostring(xml.getroot())
+            xml_data = ElementTree.tostring(xml.getroot(), encoding='unicode')
         elif isinstance(xml, ElementTree.Element):
-            xml_data = ElementTree.tostring(xml)
+            # xml_data = ElementTree.tostring(xml)
+            xml_data = ElementTree.tostring(xml, encoding='unicode')
         else:
             raise TypeError("Invalid XML type passed to upload_claim")
-        cursor.execute(
+        if vendor == 'microsoft':
+            sql = """
+                DECLARE @ret int;
+                EXEC @ret = [dbo].[uspUpdateClaimFromPhone] @XML = %s, @ByPassSubmit = 1;
+                SELECT @ret;
             """
-            DECLARE @ret int;
-            EXEC @ret = [dbo].[uspUpdateClaimFromPhone] @XML = %s, @ByPassSubmit = 1;
-            SELECT @ret;
-        """,
-            (xml_data,),
-        )
-        
-        result_sets = []
-        while True:
-            if cursor.description:
-                result_sets.append(cursor.fetchall())
-            if not cursor.nextset():
-                break
-            
-        res = result_sets[-1][0][0] if result_sets and result_sets[-1] else None
+            cursor.execute(sql, (xml_data,))
+            result_sets = []
+            while True:
+                if cursor.description:
+                    result_sets.append(cursor.fetchall())
+                if not cursor.nextset():
+                    break
+            if result_sets and result_sets[-1]:
+                result = result_sets[-1][0][0]
+            else:
+                result = -1
 
+        elif vendor == 'postgresql':
+            try:
+                cursor.execute('SELECT public."uspUpdateClaimFromPhone"(%s::text, TRUE);', (xml_data,))
+                result = cursor.fetchone()[0]
+            except Exception as e:
+                logger.error(f"PostgreSQL error: {e}")
+                print(f"PostgreSQL error: {e} !!!!") 
+                raise
+
+        else:
+            raise NotImplementedError(f"Database {vendor} not supported")
+
+        res = result
         # # We have to take the second result set. That's the one that contains the results
         # cursor.nextset()
         # cursor.nextset()
