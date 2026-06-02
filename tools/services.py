@@ -14,7 +14,7 @@ from itertools import chain
 
 from contribution.models import Premium
 from core.utils import filter_validity
-from django.db.models import Manager, Prefetch
+from django.db.models import Manager
 from django.db.models.query_utils import Q
 from django.http import JsonResponse
 from import_export.results import Result
@@ -34,7 +34,7 @@ from medical_pricelist.models import ServicesPricelist, ItemsPricelist
 from claim.models import ClaimAdmin, Claim, Feedback, FeedbackPrompt
 from policy.models import Policy
 from policy.services import update_insuree_policies
-from .utils import dictfetchall, sanitize_xml, dmy_format_sql
+from .utils import dictfetchall, sanitize_xml
 from .models import Extract
 import logging
 from dataclasses import dataclass
@@ -48,8 +48,7 @@ from xml.etree import ElementTree
 import openpyxl
 from openpyxl.styles import Font
 from io import BytesIO
-from django.http import HttpResponse
-
+ 
 logger = logging.getLogger(__name__)
 
 # It's not great to convert decimals to float but keeping it in string would
@@ -964,14 +963,28 @@ def create_master_data_export(user):
         if connection.vendor == "postgresql" else
         """SELECT "OfficerID", "OfficerUUID", "Code", "LastName", "OtherNames", "Phone", "LocationId", "OfficerIDSubst", FORMAT("WorksTo", 'yyyy-MM-dd') worksTo FROM "tblOfficer" WHERE "ValidityTo" IS NULL;""",
         "payers": """SELECT "PayerID", "PayerName", "LocationId" FROM "tblPayer" WHERE "ValidityTo" IS NULL;""",
-        "products": """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod", TO_CHAR("DateFrom", 'yyyy-MM-dd')dateFrom, TO_CHAR("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID" , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee", "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3", "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold", "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc", "EnrolmentDiscountPeriod", "GracePeriod", "Program" FROM "tblProduct" WHERE "ValidityTo" IS NULL"""
+        "products": """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod",
+            TO_CHAR("DateFrom", 'yyyy-MM-dd')dateFrom, TO_CHAR("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID",
+            "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee",
+            "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3",
+            "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold",
+            "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc",
+            "EnrolmentDiscountPeriod", "GracePeriod", "program", "Min Age" AS minAge, "Max Age" AS maxAge
+        FROM "tblProduct" WHERE "ValidityTo" IS NULL"""
         if connection.vendor == "postgresql" else
-        """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod", FORMAT("DateFrom", 'yyyy-MM-dd')dateFrom, FORMAT("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID" , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee", "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3", "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold", "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc", "EnrolmentDiscountPeriod", "GracePeriod", "Program" FROM "tblProduct" WHERE "ValidityTo" IS NULL""",
+        """SELECT "ProdID", "ProductCode", "ProductName", "LocationId", "InsurancePeriod",
+            FORMAT("DateFrom", 'yyyy-MM-dd')dateFrom, FORMAT("DateTo", 'yyyy-MM-dd')dateTo, "ConversionProdID"
+            , "LumpSum", "MemberCount", "PremiumAdult", "PremiumChild", "RegistrationLumpSum", "RegistrationFee",
+            "GeneralAssemblyLumpSum", "GeneralAssemblyFee", "StartCycle1", "StartCycle2", "StartCycle3",
+            "StartCycle4", "GracePeriodRenewal", "MaxInstallments", "WaitingPeriod", "Threshold",
+            "RenewalDiscountPerc", "RenewalDiscountPeriod", "AdministrationPeriod", "EnrolmentDiscountPerc",
+            "EnrolmentDiscountPeriod", "GracePeriod", "Program", "Min Age" AS minAge, "Max Age" AS maxAge
+        FROM "tblProduct" WHERE "ValidityTo" IS NULL""",
         "professions": """SELECT "ProfessionId", "Profession", "SortOrder", "AltLanguage" FROM "tblProfessions";""",
         "relations": """SELECT "RelationId", "Relation", "SortOrder", "AltLanguage" FROM "tblRelations";""",
         "phoneDefaults": """SELECT "RuleName", "RuleValue" FROM "tblIMISDefaultsPhone";""",
         "genders": """SELECT "Code", "Gender", "AltLanguage", "SortOrder" FROM "tblGender";""",
-        "programs": """SELECT "idProgram", "programCode", "Name", TO_CHAR("validityDateFrom", 'yyyy-MM-dd')validityDateFrom, TO_CHAR("validityDateTo", 'yyyy-MM-dd')validityDateTo FROM "tblProgram WHERE "validityDateTo" IS NULL";"""
+        "programs": """SELECT "idProgram", "programCode", "Name", TO_CHAR("validityDateFrom", 'yyyy-MM-dd')validityDateFrom, TO_CHAR("validityDateTo", 'yyyy-MM-dd')validityDateTo FROM "tblProgram" WHERE "validityDateTo" IS NULL;"""
         if connection.vendor == "postgresql" else
         """SELECT "idProgram", "programCode", "Name", FORMAT("validityDateFrom", 'yyyy-MM-dd')validityDateFrom, FORMAT("validityDateTo", 'yyyy-MM-dd')validityDateTo FROM "tblProgram" WHERE "validityDateTo" IS NULL;""",
         "cheques": """SELECT "idChequeImportLine", "chequeImportLineCode", TO_CHAR("chequeImportLineDate", 'yyyy-MM-dd') chequeImportLineDate, "chequeImportLineStatus" FROM "tblChequeSanteImportLine";"""
@@ -1010,7 +1023,6 @@ def create_master_data_export(user):
 
         return zip_file
 
-
 def create_officer_feedbacks_export(user, officer):
     """
     SELECT F.ClaimId,F.OfficerId,O.Code OfficerCode, I.CHFID, I.LastName, I.OtherNames, HF.HFCode, HF.HFName,C.ClaimCode,CONVERT(NVARCHAR(10),C.DateFrom,103)DateFrom, CONVERT(NVARCHAR(10),C.DateTo,103)DateTo,O.Phone, CONVERT(NVARCHAR(10),F.FeedbackPromptDate,103)FeedbackPromptDate"
@@ -1042,10 +1054,10 @@ def create_officer_feedbacks_export(user, officer):
             "HFCode": p.claim.health_facility.code,
             "HFName": p.claim.health_facility.name,
             "ClaimCode": p.claim.code,
-            "DateFrom": p.claim.date_from.strftime(format_date),
-            "DateTo": p.claim.date_to.strftime(format_date),
+            "DateFrom": p.claim.date_from.strftime(format_date) if p.claim.date_from else None,
+            "DateTo": p.claim.date_to.strftime(format_date) if p.claim.date_to else None,
             "Phone": officer.phone,
-            "FeedbackPromptDate": p.feedback_prompt_date.strftime(format_date)
+            "FeedbackPromptDate": p.feedback_prompt_date.strftime(format_date) if p.feedback_prompt_date else None
         })
 
     with tempfile.TemporaryDirectory() as tmp_dir_name:
@@ -1257,6 +1269,7 @@ def create_phone_extract(user, location_id, with_insuree=False):
 
 def upload_claim(user, xml):
     logger.info(f"Uploading claim with user {user.id}")
+    vendor = connection.vendor
 
     if settings.ROW_SECURITY:
         logger.info("Check that user can upload claims in claims' health facilities")
@@ -1273,29 +1286,44 @@ def upload_claim(user, xml):
 
     with connection.cursor() as cursor:
         if isinstance(xml, ElementTree.ElementTree):
-            xml_data = ElementTree.tostring(xml.getroot())
+            # xml_data = ElementTree.tostring(xml.getroot())
+            xml_data = ElementTree.tostring(xml.getroot(), encoding='unicode')
         elif isinstance(xml, ElementTree.Element):
-            xml_data = ElementTree.tostring(xml)
+            # xml_data = ElementTree.tostring(xml)
+            xml_data = ElementTree.tostring(xml, encoding='unicode')
         else:
             raise TypeError("Invalid XML type passed to upload_claim")
-        cursor.execute(
+        if vendor == 'microsoft':
+            sql = """
+                DECLARE @ret int;
+                EXEC @ret = [dbo].[uspUpdateClaimFromPhone] @XML = %s, @ByPassSubmit = 1;
+                SELECT @ret;
             """
-            DECLARE @ret int;
-            EXEC @ret = [dbo].[uspUpdateClaimFromPhone] @XML = %s, @ByPassSubmit = 1;
-            SELECT @ret;
-        """,
-            (xml_data,),
-        )
-        
-        result_sets = []
-        while True:
-            if cursor.description:
-                result_sets.append(cursor.fetchall())
-            if not cursor.nextset():
-                break
-            
-        res = result_sets[-1][0][0] if result_sets and result_sets[-1] else None
+            cursor.execute(sql, (xml_data,))
+            result_sets = []
+            while True:
+                if cursor.description:
+                    result_sets.append(cursor.fetchall())
+                if not cursor.nextset():
+                    break
+            if result_sets and result_sets[-1]:
+                result = result_sets[-1][0][0]
+            else:
+                result = -1
 
+        elif vendor == 'postgresql':
+            try:
+                cursor.execute('SELECT public."uspUpdateClaimFromPhone"(%s::text, TRUE);', (xml_data,))
+                result = cursor.fetchone()[0]
+            except Exception as e:
+                logger.error(f"PostgreSQL error: {e}")
+                print(f"PostgreSQL error: {e} !!!!") 
+                raise
+
+        else:
+            raise NotImplementedError(f"Database {vendor} not supported")
+
+        res = result
         # # We have to take the second result set. That's the one that contains the results
         # cursor.nextset()
         # cursor.nextset()
@@ -1340,18 +1368,24 @@ def open_offline_archive(archive: str, password: str = None):
         zf.extractall(path=temp_folder)
     return temp_folder
             
+
 def open_claim_archive(archive, password: str = None):
     claims = []
     with pyzipper.AESZipFile(archive, 'r') as zf:
         if password:
             zf.pwd = password.encode('utf-8')
-        for zipinfo in zf.infolist():
-            if zipinfo.filename.lower().endswith('.xml'):
-                try:
-                    xml_file = zf.open(zipinfo)
-                    claims.append((zipinfo.filename, xml_file))
-                except RuntimeError as e:
-                    raise RuntimeError(f"Cannot open file '{zipinfo.filename}': {e}")
+
+        xml_files = [z for z in zf.infolist() if z.filename.lower().endswith('.xml')]
+
+        if not xml_files:
+            raise RuntimeError("ZIP archive contains no XML files.")
+
+        for zipinfo in xml_files:
+            try:
+                xml_file = zf.open(zipinfo)
+                claims.append((zipinfo.filename, xml_file))
+            except RuntimeError as e:
+                raise RuntimeError(f"Cannot open file '{zipinfo.filename}': {e}")
     return claims
 
 
@@ -1376,12 +1410,7 @@ def generate_claims_error_excel(detailed_errors, zip_filename=None):
     output.seek(0)
 
     filename = f"detailed_errors_{zip_filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response = HttpResponse(
-        output,
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
+    return output, filename
 
 
 def get_or_create_insuree_from_xml(xml, audit_user_id, chf_id=None, family_id=None):

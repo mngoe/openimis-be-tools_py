@@ -26,6 +26,7 @@ from . import serializers, services, utils
 from .apps import ToolsConfig
 from .resources import ItemResource, ServiceResource
 from .services import return_upload_result_json
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -432,6 +433,7 @@ def download_feedbacks(request):
 
     return response
 
+
 @api_view(["GET"])
 def download_renewals(request):
     if not request.user.has_perms(ToolsConfig.extracts_officer_renewals_perms):
@@ -463,16 +465,21 @@ def upload_claims(request):
 
     errors = []
     detailed_errors = []
+    imported_count = 0
 
     for file_obj in request.FILES.values():
         filename = file_obj.name.lower()
+        if not filename.endswith('.zip'):
+            errors.append(f"File '{filename}' is not a ZIP file.")
+            continue
+
         try:
             claims = services.open_claim_archive(file_obj, zip_password)
         except Exception as e:
             logger.exception("Error while extracting ZIP archive")
             errors.append(
                 f"Could not extract ZIP '{filename}'. "
-                f"{'Password missing or incorrect.' if zip_password else 'No password provided, and file may be protected.'}"
+                f"{'Password missing or incorrect.' if zip_password else 'No password provided, and file may be protected.'} {str(e)}"
             )
             continue
 
@@ -482,9 +489,8 @@ def upload_claims(request):
                 with xml_file:
                     xml = utils.sanitize_xml(xml_file)
                     services.upload_claim(request.user, xml)
-            except services.InvalidXMLError as exc:
-                # chfid = xml.find("CHFID").text if xml.find("CHFID") is not None else ""
-                # claim_code = xml.find("ClaimCode").text if xml.find("ClaimCode") is not None else ""
+                    imported_count += 1
+            except services.InvalidXMLError as exc:               
                 details = xml.find("Details")
 
                 chfid_el = details.find("CHFID") if details is not None else None
@@ -504,10 +510,28 @@ def upload_claims(request):
                 errors.append(f"Unexpected error in '{claim_filename}'")
                 continue
 
-    if detailed_errors:
-        return services.generate_claims_error_excel(detailed_errors, file_obj)
+    if imported_count == 0 and errors:
+        errors.insert(0, "No claims were imported due to errors.")
 
-    return JsonResponse({"success": len(errors) == 0, "errors": errors}, status=400 if errors else 200)
+    if detailed_errors:
+        error_excel_io, error_filename = services.generate_claims_error_excel(detailed_errors, file_obj)
+        excel_base64 = base64.b64encode(error_excel_io.getvalue()).decode('utf-8')
+
+        return JsonResponse({
+            "success": False,
+            "errors": errors,
+            "imported": imported_count,
+            "failed": len(detailed_errors),
+            "excel_base64": excel_base64,
+            "excel_filename": error_filename
+        }, status=400)
+
+    return JsonResponse({
+        "success": len(errors) == 0, 
+        "errors": errors,
+        "imported": imported_count,
+        "failed": len(detailed_errors),
+    }, status=400 if errors else 200)
 
 
 @api_view(["POST"])

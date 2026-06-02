@@ -1,4 +1,5 @@
 from django.db import migrations
+from django.conf import settings
 
 class Migration(migrations.Migration):
 
@@ -271,8 +272,8 @@ class Migration(migrations.Migration):
 
 
                     BEGIN TRAN CLAIM
-                        INSERT INTO tblClaim(InsureeID,ClaimCode,DateFrom,DateTo,ICDID,ClaimStatus,Claimed,DateClaimed,Explanation,AuditUserID,HFID,ClaimAdminId,ICDID1,ICDID2,ICDID3,ICDID4,program,VisitType,GuaranteeId)
-                                    VALUES(@InsureeID,@ClaimCode,@StartDate,@EndDate,@ICDID,2,@Total,@ClaimDate,@Comment,-1,@HFID,@ClaimAdminId,@ICDID1,@ICDID2,@ICDID3,@ICDID4,@programId,@VisitType,@GuaranteeId);
+                        INSERT INTO tblClaim(InsureeID,ClaimCode,DateFrom,DateTo,ICDID,ClaimStatus,Claimed,DateClaimed,Explanation,AuditUserID,HFID,ClaimAdminId,ICDID1,ICDID2,ICDID3,ICDID4,program,VisitType,GuaranteeId,source)
+                                    VALUES(@InsureeID,@ClaimCode,@StartDate,@EndDate,@ICDID,2,@Total,@ClaimDate,@Comment,-1,@HFID,@ClaimAdminId,@ICDID1,@ICDID2,@ICDID3,@ICDID4,@programId,@VisitType,@GuaranteeId,'XML');
 
                         SELECT @ClaimID = SCOPE_IDENTITY();
                         
@@ -374,6 +375,183 @@ class Migration(migrations.Migration):
                 
                 RETURN 0
             END
+
+            """
+            if settings.MSSQL else
+            """
+            CREATE OR REPLACE FUNCTION public."uspUpdateClaimFromPhone"(
+                p_xml TEXT,
+                p_bypasssubmit BOOLEAN DEFAULT FALSE
+            )
+            RETURNS INTEGER AS $$
+            DECLARE
+                v_claimid INTEGER;
+                v_claimdate DATE;
+                v_hfcode VARCHAR(8);
+                v_claimadmin VARCHAR(8);
+                v_claimcode VARCHAR(50);
+                v_chfid VARCHAR(50);
+                v_startdate DATE;
+                v_enddate DATE;
+                v_icdcode VARCHAR(6);
+                v_comment TEXT;
+                v_total NUMERIC(18,2);
+                v_icdcode1 VARCHAR(6); v_icdcode2 VARCHAR(6); v_icdcode3 VARCHAR(6); v_icdcode4 VARCHAR(6);
+                v_visittype CHAR(1);
+                v_guaranteeid VARCHAR(50);
+                v_program VARCHAR(100);
+                v_programid INTEGER;
+                v_hfid INTEGER;
+                v_claimadminid INTEGER;
+                v_insureeid INTEGER;
+                v_icdid INTEGER;
+                v_icdid1 INTEGER; v_icdid2 INTEGER; v_icdid3 INTEGER; v_icdid4 INTEGER;
+
+                v_totalitems NUMERIC(18,2) := 0;
+                v_totalservices NUMERIC(18,2) := 0;
+
+                v_isclaimadminrequired BOOLEAN;
+                v_isclaimadminoptional BOOLEAN;
+
+                v_xml XML;
+            BEGIN
+                v_xml := p_xml::XML;
+
+                SELECT (CASE "Adjustibility" WHEN 'M' THEN TRUE ELSE FALSE END) INTO v_isclaimadminrequired FROM "tblControls" WHERE "FieldName" = 'ClaimAdministrator';
+                SELECT (CASE "Adjustibility" WHEN 'O' THEN TRUE ELSE FALSE END) INTO v_isclaimadminoptional FROM "tblControls" WHERE "FieldName" = 'ClaimAdministrator';
+
+                -- EXTRACT DETAILS
+                SELECT
+                    (xpath('//Details/ClaimDate/text()', v_xml))[1]::TEXT::DATE,
+                    (xpath('//Details/HFCode/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/ClaimAdmin/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/ClaimCode/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/CHFID/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/StartDate/text()', v_xml))[1]::TEXT::DATE,
+                    (xpath('//Details/EndDate/text()', v_xml))[1]::TEXT::DATE,
+                    (xpath('//Details/ICDCode/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/Comment/text()', v_xml))[1]::TEXT,
+                    COALESCE(NULLIF((xpath('//Details/Total/text()', v_xml))[1]::TEXT, ''), '0')::NUMERIC,
+                    (xpath('//Details/ICDCode1/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/ICDCode2/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/ICDCode3/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/ICDCode4/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/VisitType/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/GuaranteeNumber/text()', v_xml))[1]::TEXT,
+                    (xpath('//Details/Program/text()', v_xml))[1]::TEXT
+                INTO
+                    v_claimdate, v_hfcode, v_claimadmin, v_claimcode, v_chfid,
+                    v_startdate, v_enddate, v_icdcode, v_comment, v_total,
+                    v_icdcode1, v_icdcode2, v_icdcode3, v_icdcode4,
+                    v_visittype, v_guaranteeid, v_program;
+
+                -- VALIDATIONS
+                SELECT "HfID" INTO v_hfid FROM "tblHF" WHERE "HFCode" = v_hfcode AND "ValidityTo" IS NULL;
+                IF NOT FOUND THEN RETURN 1; END IF;
+
+                IF EXISTS(SELECT 1 FROM "tblClaim" WHERE "ClaimCode" = v_claimcode AND "HFID" = v_hfid AND "ValidityTo" IS NULL) THEN RETURN 2; END IF;
+
+                SELECT "InsureeID" INTO v_insureeid FROM "tblInsuree" WHERE "CHFID" = v_chfid AND "ValidityTo" IS NULL;
+                IF NOT FOUND THEN RETURN 3; END IF;
+
+                IF v_enddate < v_startdate THEN RETURN 4; END IF;
+
+                SELECT "ICDID" INTO v_icdid FROM "tblICDCodes" WHERE "ICDCode" = v_icdcode AND "ValidityTo" IS NULL;
+                IF NOT FOUND THEN RETURN 5; END IF;
+
+                IF EXISTS (SELECT 1 FROM xmltable('/Claim/Items/Item' PASSING v_xml COLUMNS code TEXT PATH 'ItemCode') xt LEFT JOIN "tblItems" i ON i."ItemCode" = xt.code AND i."ValidityTo" IS NULL WHERE i."ItemID" IS NULL AND xt.code IS NOT NULL) THEN RETURN 7; END IF;
+                IF EXISTS (SELECT 1 FROM xmltable('/Claim/Services/Service' PASSING v_xml COLUMNS code TEXT PATH 'ServiceCode') xt LEFT JOIN "tblServices" s ON s."ServCode" = xt.code AND s."ValidityTo" IS NULL WHERE s."ServiceID" IS NULL AND xt.code IS NOT NULL) THEN RETURN 8; END IF;
+                
+                SELECT "idProgram" INTO v_programid FROM "tblProgram" WHERE "Name" = v_program;
+                IF NOT FOUND THEN RETURN 10; END IF;
+
+                IF v_isclaimadminrequired OR v_isclaimadminoptional THEN
+                    SELECT "ClaimAdminId" INTO v_claimadminid FROM "tblClaimAdmin" WHERE "ClaimAdminCode" = v_claimadmin AND "ValidityTo" IS NULL;
+                    IF v_isclaimadminrequired AND v_claimadminid IS NULL THEN RETURN 9; END IF;
+                END IF;
+
+                -- TEMP TABLES
+                CREATE TEMP TABLE tmp_items (itemcode TEXT, itemprice NUMERIC, itemquantity NUMERIC) ON COMMIT DROP;
+                CREATE TEMP TABLE tmp_services (servicecode TEXT, serviceprice NUMERIC, servicequantity NUMERIC) ON COMMIT DROP;
+                CREATE TEMP TABLE tmp_serviceitems (servicecode TEXT, subitemcode TEXT, qtyasked NUMERIC, priceasked NUMERIC) ON COMMIT DROP;
+                CREATE TEMP TABLE tmp_serviceservices (servicecode TEXT, subservicecode TEXT, qtyasked NUMERIC, priceasked NUMERIC) ON COMMIT DROP;
+
+                INSERT INTO tmp_items 
+                SELECT * FROM xmltable('//Claim/Items/Item' PASSING v_xml COLUMNS code TEXT PATH 'ItemCode', price NUMERIC PATH 'ItemPrice', qty NUMERIC PATH 'ItemQuantity');
+
+                INSERT INTO tmp_services 
+                SELECT * FROM xmltable('//Claim/Services/Service' PASSING v_xml COLUMNS code TEXT PATH 'ServiceCode', price NUMERIC PATH 'ServicePrice', qty NUMERIC PATH 'ServiceQuantity');
+
+                -- Extract Service Items
+                INSERT INTO tmp_serviceitems (servicecode, subitemcode, qtyasked, priceasked)
+                SELECT 
+                    xt.servicecode, xt.subitemcode, xt.qtyasked, xt.priceasked
+                FROM xmltable(
+                    '//Claim/Services/Service/ServiceItemSet/ServiceItemSet' PASSING v_xml
+                    COLUMNS 
+                        servicecode TEXT PATH './../../ServiceCode',
+                        subitemcode TEXT PATH 'SubItemCode',
+                        qtyasked NUMERIC PATH 'QtyAsked',
+                        priceasked NUMERIC PATH 'PriceAsked'
+                ) xt;
+
+                -- Extract Service Services
+                INSERT INTO tmp_serviceservices (servicecode, subservicecode, qtyasked, priceasked)
+                SELECT 
+                    xt.servicecode, xt.subservicecode, xt.qtyasked, xt.priceasked
+                FROM xmltable(
+                    '//Claim/Services/Service/ServiceServiceSet/ServiceServiceSet' PASSING v_xml
+                    COLUMNS 
+                        servicecode TEXT PATH './../../ServiceCode',
+                        subservicecode TEXT PATH 'SubServiceCode',
+                        qtyasked NUMERIC PATH 'QtyAsked',
+                        priceasked NUMERIC PATH 'PriceAsked'
+                ) xt;
+
+                -- Claim
+                INSERT INTO "tblClaim"("InsureeID","ClaimCode","DateFrom","DateTo","ICDID","ClaimStatus","Claimed","DateClaimed","Explanation","AuditUserID","HFID","ClaimAdminId","ICDID1","ICDID2","ICDID3","ICDID4","program","VisitType","GuaranteeId","Feedback","source")
+                VALUES (v_insureeid, v_claimcode, v_startdate, v_enddate, v_icdid, 2, v_total, v_claimdate, v_comment, -1, v_hfid, v_claimadminid, v_icdid1, v_icdid2, v_icdid3, v_icdid4, v_programid, v_visittype, v_guaranteeid, FALSE, 'XML')
+                RETURNING "ClaimID" INTO v_claimid;
+
+                -- Insert Items
+                INSERT INTO "tblClaimItems"("ClaimID","ItemID","QtyProvided","PriceAsked","AuditUserID")
+                SELECT v_claimid, i."ItemID", t.itemquantity, COALESCE(NULLIF(t.itemprice,0), plid."PriceOverule", i."ItemPrice"), -1
+                FROM tmp_items t 
+                JOIN "tblItems" i ON i."ItemCode" = t.itemcode AND i."ValidityTo" IS NULL
+                LEFT JOIN (SELECT plid."ItemID", plid."PriceOverule" FROM "tblHF" hf JOIN "tblPLItemsDetail" plid ON plid."PLItemID" = hf."PLItemID" WHERE hf."HfID" = v_hfid AND hf."ValidityTo" IS NULL) plid ON plid."ItemID" = i."ItemID";
+
+                -- Insert Services
+                INSERT INTO "tblClaimServices"("ClaimID","ServiceID","QtyProvided","PriceAsked","AuditUserID","ClaimServiceStatus")
+                SELECT v_claimid, s."ServiceID", t.servicequantity, COALESCE(NULLIF(t.serviceprice,0), plsd."PriceOverule", s."ServPrice"), -1, 1
+                FROM tmp_services t 
+                JOIN "tblServices" s ON s."ServCode" = t.servicecode AND s."ValidityTo" IS NULL
+                LEFT JOIN (SELECT plsd."ServiceID", plsd."PriceOverule" FROM "tblHF" hf JOIN "tblPLServicesDetail" plsd ON plsd."PLServiceID" = hf."PLServiceID" WHERE hf."HfID" = v_hfid AND hf."ValidityTo" IS NULL) plsd ON plsd."ServiceID" = s."ServiceID";
+
+                -- Insert Service Items
+                INSERT INTO "tblClaimServicesItems"("qty_provided","qty_displayed","price","ClaimServiceID","ItemID")
+                SELECT si.qtyasked, si.qtyasked, si.priceasked, cs."ClaimServiceID", i."ItemID"
+                FROM tmp_serviceitems si
+                JOIN "tblServices" s ON s."ServCode" = si.servicecode AND s."ValidityTo" IS NULL
+                JOIN "tblClaimServices" cs ON cs."ClaimID" = v_claimid AND cs."ServiceID" = s."ServiceID"
+                JOIN "tblItems" i ON i."ItemCode" = si.subitemcode AND i."ValidityTo" IS NULL;
+
+                -- Insert Service Services
+                INSERT INTO "tblClaimServicesService"("qty_provided","qty_displayed","price","claimServiceID","ServiceId")
+                SELECT ss.qtyasked, ss.qtyasked, ss.priceasked, cs."ClaimServiceID", ssub."ServiceID"
+                FROM tmp_serviceservices ss
+                JOIN "tblServices" s ON s."ServCode" = ss.servicecode AND s."ValidityTo" IS NULL
+                JOIN "tblClaimServices" cs ON cs."ClaimID" = v_claimid AND cs."ServiceID" = s."ServiceID"
+                JOIN "tblServices" ssub ON ssub."ServCode" = ss.subservicecode AND ssub."ValidityTo" IS NULL;
+
+                -- UPDATE TOTAL AND SUBMIT
+                UPDATE "tblClaim" SET "Claimed" = (SELECT COALESCE(SUM("PriceAsked" * "QtyProvided"), 0) FROM "tblClaimServices" WHERE "ClaimID" = v_claimid) + (SELECT COALESCE(SUM("PriceAsked" * "QtyProvided"), 0) FROM "tblClaimItems" WHERE "ClaimID" = v_claimid) WHERE "ClaimID" = v_claimid;
+
+                IF NOT p_bypasssubmit THEN PERFORM uspsubmitsingleclaim(-1, v_claimid, 0); END IF;
+
+                RETURN 0;
+            END;
+            $$ LANGUAGE plpgsql;
+
 
             """,
         )
