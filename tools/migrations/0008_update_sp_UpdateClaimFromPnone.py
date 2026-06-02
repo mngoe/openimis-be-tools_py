@@ -401,6 +401,7 @@ class Migration(migrations.Migration):
                 v_guaranteeid VARCHAR(50);
                 v_program VARCHAR(100);
                 v_programid INTEGER;
+                v_programcode VARCHAR(50);
                 v_hfid INTEGER;
                 v_claimadminid INTEGER;
                 v_insureeid INTEGER;
@@ -412,6 +413,16 @@ class Migration(migrations.Migration):
 
                 v_isclaimadminrequired BOOLEAN;
                 v_isclaimadminoptional BOOLEAN;
+
+                -- NOUVEAUX champs pour PregnancyAge
+                v_pregnancy_age INTEGER;
+                v_calculated_pregnancy_age INTEGER;
+                v_policy_start_date DATE;
+                v_policy_pregnancy_age INTEGER;
+                v_family_id INTEGER;
+                v_monday_start DATE;
+                v_monday_end DATE;
+                v_weeks_passed INTEGER;
 
                 v_xml XML;
             BEGIN
@@ -438,12 +449,14 @@ class Migration(migrations.Migration):
                     (xpath('//Details/ICDCode4/text()', v_xml))[1]::TEXT,
                     (xpath('//Details/VisitType/text()', v_xml))[1]::TEXT,
                     (xpath('//Details/GuaranteeNumber/text()', v_xml))[1]::TEXT,
-                    (xpath('//Details/Program/text()', v_xml))[1]::TEXT
+                    (xpath('//Details/Program/text()', v_xml))[1]::TEXT,
+                    NULLIF((xpath('//Details/PregnancyAge/text()', v_xml))[1]::TEXT, '')::INTEGER
                 INTO
                     v_claimdate, v_hfcode, v_claimadmin, v_claimcode, v_chfid,
                     v_startdate, v_enddate, v_icdcode, v_comment, v_total,
                     v_icdcode1, v_icdcode2, v_icdcode3, v_icdcode4,
-                    v_visittype, v_guaranteeid, v_program;
+                    v_visittype, v_guaranteeid, v_program,
+                    v_pregnancy_age;
 
                 -- VALIDATIONS
                 SELECT "HfID" INTO v_hfid FROM "tblHF" WHERE "HFCode" = v_hfcode AND "ValidityTo" IS NULL;
@@ -461,13 +474,51 @@ class Migration(migrations.Migration):
 
                 IF EXISTS (SELECT 1 FROM xmltable('/Claim/Items/Item' PASSING v_xml COLUMNS code TEXT PATH 'ItemCode') xt LEFT JOIN "tblItems" i ON i."ItemCode" = xt.code AND i."ValidityTo" IS NULL WHERE i."ItemID" IS NULL AND xt.code IS NOT NULL) THEN RETURN 7; END IF;
                 IF EXISTS (SELECT 1 FROM xmltable('/Claim/Services/Service' PASSING v_xml COLUMNS code TEXT PATH 'ServiceCode') xt LEFT JOIN "tblServices" s ON s."ServCode" = xt.code AND s."ValidityTo" IS NULL WHERE s."ServiceID" IS NULL AND xt.code IS NOT NULL) THEN RETURN 8; END IF;
-                
-                SELECT "idProgram" INTO v_programid FROM "tblProgram" WHERE "Name" = v_program;
+
+                SELECT "idProgram", "programCode" INTO v_programid, v_programcode FROM "tblProgram" WHERE "Name" = v_program;
                 IF NOT FOUND THEN RETURN 10; END IF;
 
                 IF v_isclaimadminrequired OR v_isclaimadminoptional THEN
                     SELECT "ClaimAdminId" INTO v_claimadminid FROM "tblClaimAdmin" WHERE "ClaimAdminCode" = v_claimadmin AND "ValidityTo" IS NULL;
                     IF v_isclaimadminrequired AND v_claimadminid IS NULL THEN RETURN 9; END IF;
+                END IF;
+
+                -- CALCUL DU PregnancyAge si programme CCS et pas fourni dans le XML
+                IF v_programcode = 'CCS' AND v_pregnancy_age IS NULL AND v_insureeid IS NOT NULL AND v_enddate IS NOT NULL THEN
+
+                    -- Récupérer la famille de l'assuré
+                    SELECT "FamilyID" INTO v_family_id FROM "tblInsuree" WHERE "InsureeID" = v_insureeid AND "ValidityTo" IS NULL;
+
+                    IF v_family_id IS NOT NULL THEN
+                        -- Récupérer la policy CCS de la famille
+                        SELECT 
+                            pol."StartDate",
+                            pol."PregnancyAge"
+                        INTO 
+                            v_policy_start_date,
+                            v_policy_pregnancy_age
+                        FROM "tblPolicy" pol
+                        JOIN "tblProduct" prod ON prod."ProdID" = pol."ProdID"
+                        JOIN "tblProgram" prog ON prog."idProgram" = prod."program"
+                        WHERE pol."FamilyID" = v_family_id
+                        AND pol."ValidityTo" IS NULL
+                        AND prog."programCode" = 'CCS'
+                        LIMIT 1;
+
+                        IF v_policy_pregnancy_age IS NOT NULL THEN
+                            -- Calcul du lundi de la semaine de début de policy
+                            v_monday_start := v_policy_start_date - ((EXTRACT(DOW FROM v_policy_start_date)::INTEGER - 1 + 6) % 7);
+
+                            -- Calcul du lundi de la semaine de fin de claim
+                            v_monday_end := v_enddate - ((EXTRACT(DOW FROM v_enddate)::INTEGER + 6) % 7);
+
+                            -- Nombre de semaines écoulées
+                            v_weeks_passed := (v_monday_end - v_monday_start) / 7;
+
+                            -- PregnancyAge calculé
+                            v_pregnancy_age := v_policy_pregnancy_age + v_weeks_passed;
+                        END IF;
+                    END IF;
                 END IF;
 
                 -- TEMP TABLES
@@ -482,35 +533,29 @@ class Migration(migrations.Migration):
                 INSERT INTO tmp_services 
                 SELECT * FROM xmltable('//Claim/Services/Service' PASSING v_xml COLUMNS code TEXT PATH 'ServiceCode', price NUMERIC PATH 'ServicePrice', qty NUMERIC PATH 'ServiceQuantity');
 
-                -- Extract Service Items
                 INSERT INTO tmp_serviceitems (servicecode, subitemcode, qtyasked, priceasked)
-                SELECT 
-                    xt.servicecode, xt.subitemcode, xt.qtyasked, xt.priceasked
-                FROM xmltable(
-                    '//Claim/Services/Service/ServiceItemSet/ServiceItemSet' PASSING v_xml
-                    COLUMNS 
-                        servicecode TEXT PATH './../../ServiceCode',
-                        subitemcode TEXT PATH 'SubItemCode',
-                        qtyasked NUMERIC PATH 'QtyAsked',
-                        priceasked NUMERIC PATH 'PriceAsked'
-                ) xt;
+                SELECT xt.servicecode, xt.subitemcode, xt.qtyasked, xt.priceasked
+                FROM xmltable('//Claim/Services/Service/ServiceItemSet/ServiceItemSet' PASSING v_xml
+                    COLUMNS servicecode TEXT PATH './../../ServiceCode', subitemcode TEXT PATH 'SubItemCode', qtyasked NUMERIC PATH 'QtyAsked', priceasked NUMERIC PATH 'PriceAsked') xt;
 
-                -- Extract Service Services
                 INSERT INTO tmp_serviceservices (servicecode, subservicecode, qtyasked, priceasked)
-                SELECT 
-                    xt.servicecode, xt.subservicecode, xt.qtyasked, xt.priceasked
-                FROM xmltable(
-                    '//Claim/Services/Service/ServiceServiceSet/ServiceServiceSet' PASSING v_xml
-                    COLUMNS 
-                        servicecode TEXT PATH './../../ServiceCode',
-                        subservicecode TEXT PATH 'SubServiceCode',
-                        qtyasked NUMERIC PATH 'QtyAsked',
-                        priceasked NUMERIC PATH 'PriceAsked'
-                ) xt;
+                SELECT xt.servicecode, xt.subservicecode, xt.qtyasked, xt.priceasked
+                FROM xmltable('//Claim/Services/Service/ServiceServiceSet/ServiceServiceSet' PASSING v_xml
+                    COLUMNS servicecode TEXT PATH './../../ServiceCode', subservicecode TEXT PATH 'SubServiceCode', qtyasked NUMERIC PATH 'QtyAsked', priceasked NUMERIC PATH 'PriceAsked') xt;
 
-                -- Claim
-                INSERT INTO "tblClaim"("InsureeID","ClaimCode","DateFrom","DateTo","ICDID","ClaimStatus","Claimed","DateClaimed","Explanation","AuditUserID","HFID","ClaimAdminId","ICDID1","ICDID2","ICDID3","ICDID4","program","VisitType","GuaranteeId","Feedback","source")
-                VALUES (v_insureeid, v_claimcode, v_startdate, v_enddate, v_icdid, 2, v_total, v_claimdate, v_comment, -1, v_hfid, v_claimadminid, v_icdid1, v_icdid2, v_icdid3, v_icdid4, v_programid, v_visittype, v_guaranteeid, FALSE, 'XML')
+                -- INSERT CLAIM avec PregnancyAge
+                INSERT INTO "tblClaim"(
+                    "InsureeID","ClaimCode","DateFrom","DateTo","ICDID","ClaimStatus",
+                    "Claimed","DateClaimed","Explanation","AuditUserID","HFID","ClaimAdminId",
+                    "ICDID1","ICDID2","ICDID3","ICDID4","program","VisitType","GuaranteeId",
+                    "Feedback","source","PregnancyAge"
+                )
+                VALUES (
+                    v_insureeid, v_claimcode, v_startdate, v_enddate, v_icdid, 2,
+                    v_total, v_claimdate, v_comment, -1, v_hfid, v_claimadminid,
+                    v_icdid1, v_icdid2, v_icdid3, v_icdid4, v_programid, v_visittype, v_guaranteeid,
+                    FALSE, 'XML', v_pregnancy_age
+                )
                 RETURNING "ClaimID" INTO v_claimid;
 
                 -- Insert Items
@@ -543,8 +588,12 @@ class Migration(migrations.Migration):
                 JOIN "tblClaimServices" cs ON cs."ClaimID" = v_claimid AND cs."ServiceID" = s."ServiceID"
                 JOIN "tblServices" ssub ON ssub."ServCode" = ss.subservicecode AND ssub."ValidityTo" IS NULL;
 
-                -- UPDATE TOTAL AND SUBMIT
-                UPDATE "tblClaim" SET "Claimed" = (SELECT COALESCE(SUM("PriceAsked" * "QtyProvided"), 0) FROM "tblClaimServices" WHERE "ClaimID" = v_claimid) + (SELECT COALESCE(SUM("PriceAsked" * "QtyProvided"), 0) FROM "tblClaimItems" WHERE "ClaimID" = v_claimid) WHERE "ClaimID" = v_claimid;
+                -- UPDATE TOTAL
+                UPDATE "tblClaim" SET "Claimed" = (
+                    SELECT COALESCE(SUM("PriceAsked" * "QtyProvided"), 0) FROM "tblClaimServices" WHERE "ClaimID" = v_claimid
+                ) + (
+                    SELECT COALESCE(SUM("PriceAsked" * "QtyProvided"), 0) FROM "tblClaimItems" WHERE "ClaimID" = v_claimid
+                ) WHERE "ClaimID" = v_claimid;
 
                 IF NOT p_bypasssubmit THEN PERFORM uspsubmitsingleclaim(-1, v_claimid, 0); END IF;
 
