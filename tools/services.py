@@ -990,6 +990,9 @@ def create_master_data_export(user):
         "cheques": """SELECT "idChequeImportLine", "chequeImportLineCode", TO_CHAR("chequeImportLineDate", 'yyyy-MM-dd') chequeImportLineDate, "chequeImportLineStatus" FROM "tblChequeSanteImportLine";"""
         if connection.vendor == "postgresql" else
         """SELECT "idChequeImportLine", "chequeImportLineCode", FORMAT("chequeImportLineDate", 'yyyy-MM-dd') chequeImportLineDate, "chequeImportLineStatus" FROM "tblChequeSanteImportLine";""",
+        "ModuleConfiguration": """SELECT "id"::text, "module", "version", "config", TO_CHAR("is_disabled_until", 'yyyy-MM-dd')is_disabled_until, "is_exposed", "layer" FROM "core_ModuleConfiguration" WHERE "layer"='fe' AND "is_exposed" is true;"""
+        if connection.vendor == "postgresql" else
+        """SELECT CAST("id" AS VARCHAR(36)), "module", "version", "config", FORMAT("is_disabled_until", 'yyyy-MM-dd')is_disabled_until, "is_exposed", "layer" FROM "core_ModuleConfiguration" WHERE "layer"='fe' AND "is_exposed" = 'true'""",
     }
 
     results = {}
