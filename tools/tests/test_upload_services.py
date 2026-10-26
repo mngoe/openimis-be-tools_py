@@ -15,6 +15,7 @@ from xml.etree import ElementTree
 
 class UploadServicesParseXMLServicesTestCase(TestCase):
 
+
     def test_parse_xml_service_fields_no_code(self):
         xml = b"""
             <Services>
@@ -44,6 +45,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertTrue(errors)
             self.assertEqual(len(errors), 1)
             self.assertIn("Service is missing one of", errors[0])
+
 
     def test_parse_xml_service_fields_no_name(self):
         xml = b"""
@@ -75,6 +77,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("Service is missing one of", errors[0])
 
+
     def test_parse_xml_service_fields_no_service_type(self):
         xml = b"""
             <Services>
@@ -104,6 +107,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertTrue(errors)
             self.assertEqual(len(errors), 1)
             self.assertIn("Service is missing one of", errors[0])
+
 
     def test_parse_xml_service_fields_no_level(self):
         xml = b"""
@@ -135,6 +139,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("Service is missing one of", errors[0])
 
+
     def test_parse_xml_service_fields_no_price(self):
         xml = b"""
             <Services>
@@ -165,6 +170,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("Service is missing one of", errors[0])
 
+
     def test_parse_xml_service_fields_no_care_type(self):
         xml = b"""
             <Services>
@@ -194,6 +200,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertTrue(errors)
             self.assertEqual(len(errors), 1)
             self.assertIn("Service is missing one of", errors[0])
+
 
     def test_parse_xml_service_fields_various_price_errors(self):
         code_1 = "ERROR_PRICE_1"
@@ -284,6 +291,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertIn("price is invalid", errors[2])
             self.assertIn(code_3, errors[2])
 
+
     def test_parse_xml_service_fields_error_repeated_code(self):
         code_1 = "CODE_1"
         code_2 = "CODE_2"
@@ -350,6 +358,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertIn("exists multiple times", errors[0])
             self.assertIn(code_1, errors[0])
 
+
     def test_parse_xml_service_fields_error_code_too_small(self):
         xml = b"""
             <Services>
@@ -381,6 +390,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("code is invalid", errors[0])
             self.assertIn("''", errors[0])
+
 
     def test_parse_xml_service_fields_error_code_too_long(self):
         long_boi = "THIS_CODE_IS_REALLY_LONG_WHY?"
@@ -415,6 +425,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertIn("code is invalid", errors[0])
             self.assertIn(long_boi, errors[0])
 
+
     def test_parse_xml_service_fields_error_name_too_small(self):
         xml = b"""
             <Services>
@@ -446,6 +457,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("name is invalid", errors[0])
             self.assertIn("''", errors[0])
+
 
     def test_parse_xml_service_fields_error_name_too_long(self):
         long_boi = "this name is really long, why? Why would anyone prepare a medical " \
@@ -480,6 +492,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("name is invalid", errors[0])
             self.assertIn(long_boi, errors[0])
+
 
     def test_parse_xml_service_fields_error_unknown_type(self):
         unknown_type = "O"
@@ -571,6 +584,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("type is invalid", errors[0])
             self.assertIn(unknown_type, errors[0])
+
 
     def test_parse_xml_service_fields_error_unknown_care_type(self):
         unknown_care_type = "K"
@@ -691,6 +705,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
             self.assertIn("care type is invalid", errors[0])
             self.assertIn(unknown_care_type, errors[0])
 
+
     def test_parse_xml_service_fields_mixed_errors_and_success(self):
         code_ok_1 = "CODE_1"
         code_ok_2 = "CODE_2"
@@ -810,6 +825,7 @@ class UploadServicesParseXMLServicesTestCase(TestCase):
 
 class UploadServicesParseOptionalFieldsTestCase(TestCase):
 
+
     def test_parse_optional_service_fields_all_empty(self):
         xml = f"""
             <Service>
@@ -827,6 +843,7 @@ class UploadServicesParseOptionalFieldsTestCase(TestCase):
 
             self.assertFalse(optional_fields)
             self.assertFalse(error)
+
 
     def test_parse_optional_service_fields_all_filled(self):
         xml = f"""
@@ -849,6 +866,7 @@ class UploadServicesParseOptionalFieldsTestCase(TestCase):
             self.assertIn("category", optional_fields)
             self.assertFalse(error)
 
+
     def test_parse_optional_service_fields_filled_and_empty_frq(self):
         xml = f"""
             <Service>
@@ -870,6 +888,7 @@ class UploadServicesParseOptionalFieldsTestCase(TestCase):
             self.assertNotIn("category", optional_fields)
             self.assertFalse(error)
 
+
     def test_parse_optional_service_fields_filled_and_empty_cat(self):
         xml = f"""
             <Service>
@@ -890,6 +909,7 @@ class UploadServicesParseOptionalFieldsTestCase(TestCase):
             self.assertIn("category", optional_fields)
             self.assertNotIn("frequency", optional_fields)
             self.assertFalse(error)
+
 
     def test_parse_optional_service_fields_error_frequency(self):
         xml = f"""
@@ -915,10 +935,12 @@ class UploadServicesParseOptionalFieldsTestCase(TestCase):
 
 class UploadServicesTestCase(TestCase):
 
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.admin_user = create_test_interactive_user(username="testServicesAdmin")
+
 
     @patch("tools.services.parse_xml_services")
     def test_upload_services_multiple_insert_dry_run(self, mock_parsing):
@@ -955,6 +977,7 @@ class UploadServicesTestCase(TestCase):
         result = upload_services(self.admin_user, "xml", strategy, dry_run)
 
         self.assertEqual(expected, result)
+
 
     @patch("tools.services.parse_xml_services")
     def test_upload_services_multiple_update_dry_run(self, mock_parsing):
@@ -993,6 +1016,7 @@ class UploadServicesTestCase(TestCase):
         result = upload_services(self.admin_user, "xml", strategy, dry_run)
 
         self.assertEqual(expected, result)
+
 
     @patch("tools.services.parse_xml_services")
     def test_upload_services_multiple_insert_update_dry_run(self, mock_parsing):
@@ -1033,6 +1057,7 @@ class UploadServicesTestCase(TestCase):
         result = upload_services(self.admin_user, "xml", strategy, dry_run)
 
         self.assertEqual(expected, result)
+
 
     @patch("tools.services.parse_xml_services")
     def test_upload_services_multiple_insert_update_delete_dry_run(self, mock_parsing):
@@ -1076,6 +1101,7 @@ class UploadServicesTestCase(TestCase):
         result = upload_services(self.admin_user, "xml", strategy, dry_run)
 
         self.assertEqual(expected, result)
+
 
     @patch("tools.services.parse_xml_services")
     def test_upload_services_multiple_insert(self, mock_parsing):
@@ -1147,6 +1173,7 @@ class UploadServicesTestCase(TestCase):
         new_service1.delete()
         new_service2 = Service.objects.get(code=new_code_2)
         new_service2.delete()
+
 
     @patch("tools.services.parse_xml_services")
     def test_upload_services_multiple_update(self, mock_parsing):
@@ -1233,6 +1260,7 @@ class UploadServicesTestCase(TestCase):
         db_new_service_2 = Service.objects.get(code=new_code_2, validity_to=None)
         self.assertEqual(db_new_service_2.name, new_name_2)
         db_new_service_2.delete()
+
 
     @patch("tools.services.parse_xml_services")
     def test_upload_services_multiple_insert_update(self, mock_parsing):
@@ -1333,6 +1361,7 @@ class UploadServicesTestCase(TestCase):
         db_insert_service_1.delete()
         db_insert_service_2 = Service.objects.get(code=insert_code_2, validity_to=None)
         db_insert_service_2.delete()
+
 
     @patch("tools.services.parse_xml_services")
     def test_upload_services_multiple_insert_update_delete(self, mock_parsing):

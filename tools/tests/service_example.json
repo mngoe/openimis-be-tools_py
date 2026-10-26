@@ -1,0 +1,31 @@
+[
+  {
+    "code": "TEST1",
+    "name": "Test service 1",
+    "type": "C",
+    "level": "S",
+    "price": 720,
+    "category": "O",
+    "care_type": "B",
+    "frequency": 0,
+    "adult_cat": 0,
+    "minor_cat": 1,
+    "male_cat": 1,
+    "female_cat": 1
+  },
+  {
+    "code": "TEST2",
+    "name": "Test service 2",
+    "type": "C",
+    "level": "S",
+    "price": 720,
+    "category": "O",
+    "care_type": "B",
+    "frequency": 180,
+    "adult_cat": 1,
+    "minor_cat": 0,
+    "male_cat": 0,
+    "female_cat": 1
+  }
+
+]
