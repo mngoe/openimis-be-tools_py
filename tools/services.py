@@ -34,7 +34,7 @@ from medical_pricelist.models import ServicesPricelist, ItemsPricelist
 from claim.models import ClaimAdmin, Claim, Feedback, FeedbackPrompt
 from policy.models import Policy
 from policy.services import update_insuree_policies
-from .utils import dictfetchall, sanitize_xml
+from .utils import dictfetchall, normalize_insuree_number, sanitize_xml
 from .models import Extract
 import logging
 from dataclasses import dataclass
@@ -1418,12 +1418,13 @@ def generate_claims_error_excel(detailed_errors, zip_filename=None):
 
 def get_or_create_insuree_from_xml(xml, audit_user_id, chf_id=None, family_id=None):
     # TODO use get() for missing field safety
+    xml_chf_id = normalize_insuree_number(chf_id if chf_id else xml.get("CHFID"))
     return Insuree.objects.get_or_create(
         validity_to=None,
-        chf_id=chf_id if chf_id else xml.get("CHFID"),
+        chf_id=xml_chf_id,
         defaults={
             # "InsureeId": xml.get("InsureeId"),
-            "chf_id": xml.get("CHFID"),
+            "chf_id": xml_chf_id,
             "last_name": xml.get("LastName"),
             "other_names": xml.get("OtherNames"),
             "dob": xml.get("DOB"),
@@ -1455,9 +1456,12 @@ def get_or_create_family_from_xml(xml, audit_user_id, head_insuree_id=None):
     if head_insuree_id:
         head_id = head_insuree_id
     else:
+        head_chf_id = normalize_insuree_number(
+            xml.get("HOFCHFID") if xml.get("HOFCHFID") else xml.get("CHFID")
+        )
         head_id = Insuree.objects.get(
             validity_to__isnull=True,
-            chf_id=xml.get("HOFCHFID") if xml.get("HOFCHFID") else xml.get("CHFID")
+            chf_id=head_chf_id
         ).id
 
     return Family.objects.get_or_create(
