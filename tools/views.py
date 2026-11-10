@@ -21,9 +21,11 @@ from medical.models import Diagnosis, Item, Service
 from location.apps import DEFAULT_CFG as LOCATION_DEFAULT_CFG
 from rest_framework.decorators import api_view, permission_classes, renderer_classes
 
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from . import serializers, services, utils
 from .apps import ToolsConfig
+from .scope import location_in_scope, officer_in_scope
 from .resources import ItemResource, ServiceResource
 from .services import return_upload_result_json
 import base64
@@ -31,14 +33,24 @@ import base64
 logger = logging.getLogger(__name__)
 
 
+def _tools_right(attr):
+    """IsAuthenticated + the ToolsConfig right list `attr`, read on each request
+    (checkUserWithRights captures the list at import, before ready() loads it)."""
+
+    class ToolsRight(IsAuthenticated):
+        def has_permission(self, request, view):
+            return super().has_permission(request, view) and \
+                request.user.has_perms(getattr(ToolsConfig, attr))
+
+    return ToolsRight
+
+
 
 
 @api_view(["GET"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_locations_perms,
-        )
+        _tools_right("registers_locations_query_perms")
     ]
 )
 @renderer_classes([serializers.LocationsXMLRenderer])
@@ -66,9 +78,7 @@ def download_locations(request):
 @api_view(["POST"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_locations_perms,
-        )
+        _tools_right("registers_locations_write_perms")
     ]
 )
 def upload_locations(request):
@@ -100,9 +110,7 @@ def upload_locations(request):
 @api_view(["GET"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_health_facilities_perms,
-        )
+        _tools_right("registers_health_facilities_query_perms")
     ]
 )
 @renderer_classes([serializers.HealthFacilitiesXMLRenderer])
@@ -123,9 +131,7 @@ def download_health_facilities(request):
 @api_view(["POST"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_health_facilities_perms,
-        )
+        _tools_right("registers_health_facilities_write_perms")
     ]
 )
 def upload_health_facilities(request):
@@ -168,9 +174,7 @@ def upload_health_facilities(request):
 @api_view(["GET"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_diagnoses_perms,
-        )
+        _tools_right("registers_diagnoses_query_perms")
     ]
 )
 @renderer_classes([serializers.DiagnosesXMLRenderer])
@@ -186,9 +190,7 @@ def download_diagnoses(request):
 @api_view(["GET"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_items_perms,
-        )
+        _tools_right("registers_items_query_perms")
     ]
 )
 @renderer_classes([serializers.ItemsXMLRenderer])
@@ -221,9 +223,7 @@ def download_items(request):
 @api_view(["GET"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_services_perms,
-        )
+        _tools_right("registers_services_query_perms")
     ]
 )
 @renderer_classes([serializers.ServicesXMLRenderer])
@@ -239,9 +239,7 @@ def download_services(request):
 @api_view(["POST"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_diagnoses_perms,
-        )
+        _tools_right("registers_diagnoses_write_perms")
     ]
 )
 def upload_diagnoses(request):
@@ -273,9 +271,7 @@ def upload_diagnoses(request):
 @api_view(["POST"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_items_perms,
-        )
+        _tools_right("registers_items_write_perms")
     ]
 )
 def upload_items(request):
@@ -327,9 +323,7 @@ def upload_items(request):
 @api_view(["POST"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_services_perms,
-        )
+        _tools_right("registers_services_write_perms")
     ]
 )
 def upload_services(request):
@@ -404,6 +398,8 @@ def download_phone_extract(request):
 
     if not location_id:
         return Response(status=400, data={"error": "Location must be provided."})
+    if not location_in_scope(request.user, location_id):
+        raise PermissionDenied(_("unauthorized"))
 
     extract = services.create_phone_extract(request.user, location_id, with_insuree)
 
@@ -421,6 +417,8 @@ def download_feedbacks(request):
 
     officer_id = request.GET.get("officer_id")
     officer = get_object_or_404(Officer, id=officer_id, *filter_validity())
+    if not officer_in_scope(request.user, officer):
+        raise PermissionDenied(_("unauthorized"))
 
     export_file = services.create_officer_feedbacks_export(request.user, officer)
 
@@ -441,6 +439,8 @@ def download_renewals(request):
 
     officer_id = request.GET.get("officer_id")
     officer = get_object_or_404(Officer, id=officer_id, *filter_validity())
+    if not officer_in_scope(request.user, officer):
+        raise PermissionDenied(_("unauthorized"))
 
     export_file = services.create_officer_renewals_export(request.user, officer)
     response = FileResponse(
@@ -453,10 +453,11 @@ def download_renewals(request):
     return response
 
 
-@require_http_methods(["POST"])
+@api_view(["POST"])
+# a DRF view so the Bearer / Basic credentials of the apps are read; it used to be a
+# plain Django view where anonymous callers passed the (empty) right list
+@permission_classes([_tools_right("extracts_upload_claims_perms")])
 def upload_claims(request):
-    if not request.user.has_perms(ToolsConfig.extracts_upload_claims_perms):
-        raise PermissionDenied(_("unauthorized"))
 
     if not request.FILES:
         return JsonResponse({"error": "No file provided"}, status=400)
@@ -538,7 +539,7 @@ def upload_claims(request):
 @permission_classes(
     [
         checkUserWithRights(
-            ToolsConfig.registers_locations_perms,
+            ToolsConfig.registers_locations_perms,  # TODO: check rights
         )
     ]
 )
@@ -554,7 +555,7 @@ def upload_enrollments(request):
 @permission_classes(
     [
         checkUserWithRights(
-            ToolsConfig.registers_locations_perms,
+            ToolsConfig.registers_locations_perms,  # TODO: check rights
         )
     ]
 )
@@ -570,7 +571,7 @@ def upload_renewals(request):
 @permission_classes(
     [
         checkUserWithRights(
-            ToolsConfig.registers_locations_perms,
+            ToolsConfig.registers_locations_perms,  # TODO: check rights
         )
     ]
 )
@@ -627,9 +628,7 @@ CONTENT_TYPES = {
 @api_view(["GET"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_items_perms,
-        )
+        _tools_right("registers_items_query_perms")
     ]
 )
 def export_items(request):
@@ -659,9 +658,7 @@ def process_export_items(user_id, data_type):
 @api_view(["POST"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_items_perms,
-        )
+        _tools_right("registers_items_write_perms")
     ]
 )
 def import_items(request):
@@ -686,9 +683,7 @@ def import_items(request):
 @api_view(["GET"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_services_perms,
-        )
+        _tools_right("registers_services_query_perms")
     ]
 )
 def export_services(request):
@@ -718,9 +713,7 @@ def process_export_services(user_id, data_type):
 @api_view(["POST"])
 @permission_classes(
     [
-        checkUserWithRights(
-            ToolsConfig.registers_services_perms,
-        )
+        _tools_right("registers_services_write_perms")
     ]
 )
 def import_services(request):
