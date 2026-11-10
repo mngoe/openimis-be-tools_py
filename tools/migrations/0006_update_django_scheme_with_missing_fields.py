@@ -11,15 +11,23 @@ class Migration(migrations.Migration):
         ('tools', '0005_items_services_rights'),
     ]
 
+    # tblExtracts already carries HFID / LocationId in the legacy IMIS schema, so
+    # these AddField operations fail with "column ... already exists".
+    # Declare them in Django's migration state only.
     operations = [
-        migrations.AddField(
-            model_name='extract',
-            name='health_facility',
-            field=models.ForeignKey(db_column='HFID', on_delete=django.db.models.deletion.DO_NOTHING, to='location.healthfacility'),
-        ),
-        migrations.AddField(
-            model_name='extract',
-            name='location',
-            field=models.ForeignKey(db_column='LocationId', on_delete=django.db.models.deletion.DO_NOTHING, to='location.location'),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AddField(
+                    model_name='extract',
+                    name='health_facility',
+                    field=models.ForeignKey(db_column='HFID', on_delete=django.db.models.deletion.DO_NOTHING, to='location.healthfacility'),
+                ),
+                migrations.AddField(
+                    model_name='extract',
+                    name='location',
+                    field=models.ForeignKey(db_column='LocationId', on_delete=django.db.models.deletion.DO_NOTHING, to='location.location'),
+                ),
+            ],
         ),
     ]
